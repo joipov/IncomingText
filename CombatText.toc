@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: Combat Text
+## Notes: A scrolling list of your incoming and outgoing damage and healing.
+## Author: Joipov
+## Version: 1.5.1
+## Category: |cff8b5cf6Joipov|r Tools
+## IconTexture: Interface\Icons\INV_Sword_04
+## SavedVariables: CombatTextDB
+## OptionalDeps: LibStub, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0
+## AddonCompartmentFunc: CombatText_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: CombatText_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: CombatText_OnAddonCompartmentLeave
+## AllowLoadGameType: forever
+## ExcludeLoadGameType: standard, classic
+## X-License: MIT
+## X-Website: https://github.com/joipov/CombatText
+
+Database.lua
+SpellLabel.lua
+List.lua
+Events.lua
+MinimapButton.lua
+Options.lua
