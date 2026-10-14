@@ -1,27 +1,23 @@
-# Combat Text
+# Incoming Text
 
-Two lists of damage and healing, one for hits on you and one for hits on your target. Each list has its own place, size, face, and direction.
+A scrolling list of damage, healing, and misses that land on you. The list has its own place, size, face, and direction.
 
 Target client: World of Warcraft **Forever** (`## Interface: 16001`).
 
 ## Features
 
-- Incoming damage and healing are hits on you, in their own list. **Show incoming** hides that list.
-- Outgoing damage and healing are hits on your target, in their own list. The game does not say who landed the hit, so in a group other players' hits are included. Alone, it is you and your pet. **Show outgoing** hides that list.
-- Each list chooses **Font**, **Font size**, **Crit size**, and **Opacity**, left or right alignment, and whether new lines grow up or down. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag them. Right-click a list to lock both.
-- **Colors** is shared by both lists: physical hits, critical hits, each spell school, healing, misses, and interrupts. A critical hit uses the critical color.
-- **Line order** places the icon, the number, and the spell name. **Shorten spell names** turns Sinister Strike into SS. **Icons on normal hits** and **Icons on crits** add the spell icon. **Icons on white hits** adds the weapon from your latest swing: sword, axe, wand, bow, and so on. A white hit with no swing of yours stays a number. Damage over time stays unlabeled. A buff does not name the next hit. Damage keeps a name only from a spell that can hit an enemy, and a heal only from a helpful spell. A harmful spell that does not deal that hit, such as Gouge, can still name a swing in the same moment.
-- A cast that dies on your target is one line. The line does not name your kick. The spell on that line follows the same order, and its icon follows **Icons on normal hits**.
-- Miss, dodge, parry, block, and similar lines are optional.
-- Minimap launcher via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/ct` open settings.
+- Damage, healing, and misses are hits on you. **Show damage**, **Show healing**, and **Show misses** choose which lines appear.
+- **Font**, **Font size**, **Crit size**, and **Opacity** set the text. Lines sit on the left or the right, and new lines grow up or down. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag the corner square. Right-click the square to lock it.
+- **Colors** covers physical hits, critical hits, each spell school, healing, and misses. A critical hit uses the critical color.
+- Minimap launcher via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `/ct`, `/combattext` | Open the settings panel |
-| `/ct test` | Show sample lines |
-| `/ct help` | List these commands |
+| `/it`, `/incoming` | Open the settings panel |
+| `/it test` | Show sample lines |
+| `/it help` | List these commands |
 
 ## Files
 
@@ -29,10 +25,9 @@ Loaded in TOC order; modules communicate only through the shared `ns` table.
 
 | File | Concern |
 | --- | --- |
-| `Database.lua` | SavedVariables defaults, migrations, validation |
-| `SpellLabel.lua` | Line order, short spell names, icon text, and which casts can name a hit |
-| `List.lua` | Incoming and outgoing pools, fade, drag position |
-| `Events.lua` | Unit combat feed, cast-name guess, login line |
+| `Database.lua` | SavedVariables defaults and validation |
+| `List.lua` | Line pool, fade, drag position |
+| `Events.lua` | Hits on you, login line |
 | `MinimapButton.lua` | LibDBIcon launcher or built-in button, addon compartment |
 | `Options.lua` | Settings pages, slash commands |
 
@@ -42,7 +37,7 @@ The repository lives outside the game folder; the AddOns entry is a
 directory junction to it:
 
 ```
-mklink /J "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\CombatText" "D:\Repos\Joipov\CombatText"
+mklink /J "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\IncomingText" "D:\Repos\Joipov\IncomingText"
 ```
 
 Static checks (no game client needed):
@@ -66,7 +61,6 @@ Local zip, with the addon folder at the root, written to `.release/`:
 powershell -File package.ps1
 ```
 
-Releases: push an annotated tag (`git tag -a 1.5.1 -m "1.5.1"`). The
+Releases: push an annotated tag (`git tag -a 2.0.0 -m "2.0.0"`). The
 `Package and release` workflow runs BigWigsMods/packager, which reads the game
 version from the TOC and the manual changelog from `CHANGELOG.md`.
-The audit note is not shipped.

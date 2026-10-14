@@ -16,13 +16,13 @@ files["tests/"] = {
 -- Globals this addon writes. It writes them through _G, so luacheck does not
 -- require them; the list documents intent and catches accidental renames.
 globals = {
-	"CombatTextDB",
-	"CombatText_OnAddonCompartmentClick",
-	"CombatText_OnAddonCompartmentEnter",
-	"CombatText_OnAddonCompartmentLeave",
-	"SLASH_CT1",
-	"SLASH_CT2",
-	SlashCmdList = { fields = { "CT" } },
+	"IncomingTextDB",
+	"IncomingText_OnAddonCompartmentClick",
+	"IncomingText_OnAddonCompartmentEnter",
+	"IncomingText_OnAddonCompartmentLeave",
+	"SLASH_INCOMINGTEXT1",
+	"SLASH_INCOMINGTEXT2",
+	SlashCmdList = { fields = { "INCOMINGTEXT" } },
 }
 
 -- WoW globals this addon reads. Anything else is an error.
@@ -31,16 +31,12 @@ read_globals = {
 	"canaccessvalue",
 
 	"C_AddOns",
-	"C_Spell",
 	"C_Timer",
 	"LibStub",
 	"bit",
 
 	"CreateFrame",
 	"GetTime",
-	"UnitIsUnit",
-	"GetInventoryItemTexture",
-	"Enum",
 
 	"GameTooltip",
 	"GetCursorPosition",

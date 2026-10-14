@@ -1,4 +1,4 @@
-package-as: CombatText
+package-as: IncomingText
 
 # assets/ is CurseForge and Wago release media. It stays in git.
 # It is not unused, and it is not part of the addon zip.

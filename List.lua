@@ -1,10 +1,12 @@
 local _, ns = ...
 
--- Two scrolling lists. Lines are a fixed pool: a fight must not create a frame
--- per hit. Each frame's OnUpdate runs only while one of its lines is fading.
+-- One scrolling list. Lines are a fixed pool: a fight must not create a frame
+-- per hit. OnUpdate runs only while a line is fading.
 
 local MAX_LINES = 24
 local WIDTH = 260
+-- Drag handle. Lines grow away from this corner.
+local SQUARE = 16
 local FONT_FALLBACK = "Fonts\\FRIZQT__.TTF"
 local HOLD = 4
 local FADE = 1
@@ -23,8 +25,25 @@ for i = 1, #BUILTIN_FONTS do
 end
 
 local GetTime = GetTime
+local GameTooltip = GameTooltip
 local issecretvalue = issecretvalue
 local canaccessvalue = canaccessvalue
+
+local list = {
+	fonts = {},
+	slots = {},
+	watchingFade = false,
+}
+
+for i = 1, MAX_LINES do
+	list.slots[i] = {
+		text = "",
+		color = "physical",
+		born = 0,
+		crit = false,
+		active = false,
+	}
+end
 
 local function SecretBlocked(value)
 	return issecretvalue(value) and not canaccessvalue(value)
@@ -38,74 +57,11 @@ local function CopySlot(dst, src)
 	dst.active = src.active
 end
 
-local function NewList(prefix, keys)
-	local list = {
-		prefix = prefix,
-		keys = keys,
-		fonts = {},
-		slots = {},
-		watchingFade = false,
-	}
-	for i = 1, MAX_LINES do
-		list.slots[i] = {
-			text = "",
-			color = "physical",
-			born = 0,
-			crit = false,
-			active = false,
-		}
-	end
-	return list
-end
-
-local lists = {
-	NewList("in", {
-		enabled = "inEnabled",
-		font = "inFontSize",
-		crit = "inCritSize",
-		face = "inFont",
-		opacity = "inOpacity",
-		lines = "inLines",
-		align = "inAlign",
-		grow = "inGrow",
-		point = "inPoint",
-		relPoint = "inRelPoint",
-		x = "inX",
-		y = "inY",
-	}),
-	NewList("out", {
-		enabled = "outEnabled",
-		font = "outFontSize",
-		crit = "outCritSize",
-		face = "outFont",
-		opacity = "outOpacity",
-		lines = "outLines",
-		align = "outAlign",
-		grow = "outGrow",
-		point = "outPoint",
-		relPoint = "outRelPoint",
-		x = "outX",
-		y = "outY",
-	}),
-}
-
-local incoming = lists[1]
-local outgoing = lists[2]
-
-local function LineSize(list, crit)
+local function LineSize(crit)
 	if crit then
-		return ns.db[list.keys.crit]
+		return ns.db.critSize
 	end
-	return ns.db[list.keys.font]
-end
-
-local function FrameHeight(list)
-	local size = ns.db[list.keys.font]
-	local crit = ns.db[list.keys.crit]
-	if crit > size then
-		size = crit
-	end
-	return math.floor(ns.db[list.keys.lines] * (size + 4) + 8)
+	return ns.db.fontSize
 end
 
 local function SlotColor(name)
@@ -141,11 +97,11 @@ end
 
 function ns.FontChoices()
 	local seen = {}
-	local list = {}
+	local choices = {}
 	for i = 1, #BUILTIN_FONTS do
 		local name = BUILTIN_FONTS[i][1]
 		seen[name] = true
-		list[#list + 1] = { name, name }
+		choices[#choices + 1] = { name, name }
 	end
 	local media = Media()
 	if media then
@@ -162,34 +118,30 @@ function ns.FontChoices()
 			for i = 1, #copy do
 				local name = copy[i]
 				seen[name] = true
-				list[#list + 1] = { name, name }
+				choices[#choices + 1] = { name, name }
 			end
 		end
 	end
-	return list
+	return choices
 end
 
-local function UseFont(fs, list, size)
-	local path = ns.FontPath(ns.db[list.keys.face])
+local function UseFont(fs, size)
+	local path = ns.FontPath(ns.db.font)
 	if not fs:SetFont(path, size, "OUTLINE") then
 		fs:SetFont(FONT_FALLBACK, size, "OUTLINE")
 	end
 end
 
-local function SectionOn(list)
-	return ns.db.enabled and ns.db[list.keys.enabled]
-end
-
-local function PeakAlpha(list)
-	local opacity = ns.db and ns.db[list.keys.opacity]
+local function PeakAlpha()
+	local opacity = ns.db and ns.db.opacity
 	if type(opacity) ~= "number" then
 		return 1
 	end
 	return opacity / 100
 end
 
-local function AlphaFor(list, born, now)
-	local peak = PeakAlpha(list)
+local function AlphaFor(born, now)
+	local peak = PeakAlpha()
 	local age = now - born
 	if age <= HOLD then
 		return peak
@@ -201,28 +153,28 @@ local function AlphaFor(list, born, now)
 	return alpha
 end
 
-local function Paint(list)
-	local count = ns.db[list.keys.lines]
+local function Paint()
+	local count = ns.db.lines
 	local now = GetTime()
-	local align = ns.db[list.keys.align] == "RIGHT" and "RIGHT" or "LEFT"
-	local growUp = ns.db[list.keys.grow] == "UP"
+	local align = ns.db.align == "RIGHT" and "RIGHT" or "LEFT"
+	local growUp = ns.db.grow == "UP"
 	local anchor = (growUp and "BOTTOM" or "TOP") .. align
 	local ySign = growUp and 1 or -1
-	local x = align == "RIGHT" and -PAD or PAD
+	local x = align == "RIGHT" and -SQUARE or SQUARE
 	local y = 0
 	for i = 1, MAX_LINES do
 		local fs = list.fonts[i]
 		local slot = list.slots[i]
 		if i <= count and slot.active then
-			local size = LineSize(list, slot.crit)
-			UseFont(fs, list, size)
+			local size = LineSize(slot.crit)
+			UseFont(fs, size)
 			fs:SetWidth(WIDTH - PAD * 2)
 			fs:SetJustifyH(align)
 			fs:SetText(slot.text)
 			local colorName = slot.crit and "crit" or slot.color
 			local r, g, b = SlotColor(colorName)
 			fs:SetTextColor(r, g, b)
-			fs:SetAlpha(AlphaFor(list, slot.born, now))
+			fs:SetAlpha(AlphaFor(slot.born, now))
 			fs:ClearAllPoints()
 			fs:SetPoint(anchor, list.frame, anchor, x, y * ySign)
 			fs:Show()
@@ -236,14 +188,14 @@ local function Paint(list)
 	end
 end
 
-local function ApplyAlpha(list, now)
-	local count = ns.db[list.keys.lines]
+local function ApplyAlpha(now)
+	local count = ns.db.lines
 	local any = false
 	for i = 1, count do
 		local slot = list.slots[i]
 		if slot.active then
 			local fs = list.fonts[i]
-			local alpha = AlphaFor(list, slot.born, now)
+			local alpha = AlphaFor(slot.born, now)
 			if alpha <= 0 then
 				slot.active = false
 				fs:Hide()
@@ -256,8 +208,8 @@ local function ApplyAlpha(list, now)
 	return any
 end
 
-local function Compact(list)
-	local count = ns.db[list.keys.lines]
+local function Compact()
+	local count = ns.db.lines
 	local write = 1
 	for read = 1, count do
 		local src = list.slots[read]
@@ -274,9 +226,9 @@ local function Compact(list)
 	end
 end
 
-local function Fade(list)
+local function Fade()
 	local now = GetTime()
-	local count = ns.db[list.keys.lines]
+	local count = ns.db.lines
 	local expired = false
 	for i = 1, count do
 		local slot = list.slots[i]
@@ -286,16 +238,16 @@ local function Fade(list)
 		end
 	end
 	if expired then
-		Compact(list)
-		Paint(list)
+		Compact()
+		Paint()
 	end
-	if not ApplyAlpha(list, GetTime()) then
+	if not ApplyAlpha(GetTime()) then
 		list.watchingFade = false
 		list.frame:SetScript("OnUpdate", nil)
 	end
 end
 
-local function StartFade(list)
+local function StartFade()
 	if list.watchingFade then
 		return
 	end
@@ -303,7 +255,7 @@ local function StartFade(list)
 	list.frame:SetScript("OnUpdate", list.fade)
 end
 
-local function SavePosition(list)
+local function SavePosition()
 	local db = ns.db
 	if not db or not list.frame then
 		return
@@ -318,33 +270,43 @@ local function SavePosition(list)
 	if type(x) ~= "number" or type(y) ~= "number" then
 		return
 	end
-	db[list.keys.point] = point
-	db[list.keys.relPoint] = relPoint
-	db[list.keys.x] = x
-	db[list.keys.y] = y
+	db.point = point
+	db.relPoint = relPoint
+	db.x = x
+	db.y = y
 end
 
-local function Bind(list)
+local function Bind()
 	local db = ns.db
 	local frame = CreateFrame("Frame", nil, UIParent)
 	list.frame = frame
-	frame:SetSize(WIDTH, FrameHeight(list))
+	frame:SetSize(SQUARE, SQUARE)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetClampedToScreen(true)
-	frame:SetPoint(db[list.keys.point], UIParent, db[list.keys.relPoint], db[list.keys.x], db[list.keys.y])
+	frame:SetPoint(db.point, UIParent, db.relPoint, db.x, db.y)
 	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine("Drag to move.")
+		GameTooltip:AddLine("Right-click to lock.", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	frame:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
 	frame:SetScript("OnDragStart", function()
 		if not ns.db or ns.db.lockPosition then
 			return
 		end
+		GameTooltip:Hide()
 		frame:StartMoving()
 	end)
 	frame:SetScript("OnDragStop", function()
 		frame:StopMovingOrSizing()
-		SavePosition(list)
+		SavePosition()
 	end)
 	-- A locked list ignores the mouse, so this click can only lock. SetValue
-	-- updates the checkbox, which is how the lists unlock.
+	-- updates the checkbox, which is how the list unlocks.
 	frame:SetScript("OnMouseUp", function(_, button)
 		if button ~= "RightButton" or not ns.db or ns.db.lockPosition then
 			return
@@ -356,7 +318,7 @@ local function Bind(list)
 		ns.db.lockPosition = true
 		ns.ApplyLock()
 	end)
-	if not db.enabled or not db[list.keys.enabled] then
+	if not db.enabled then
 		frame:Hide()
 	end
 
@@ -365,106 +327,80 @@ local function Bind(list)
 	backdrop:SetAllPoints()
 	list.backdrop = backdrop
 
-	-- Shown with the drag backdrop. It is the way back to a click-through list.
-	local hint = frame:CreateFontString(nil, "OVERLAY")
-	hint:SetFont(FONT_FALLBACK, 12, "OUTLINE")
-	hint:SetPoint("CENTER")
-	hint:SetText("Right-click to lock.")
-	hint:SetTextColor(1, 1, 1)
-	hint:Hide()
-	list.hint = hint
-
 	for i = 1, MAX_LINES do
 		local fs = frame:CreateFontString(nil, "OVERLAY")
-		UseFont(fs, list, db[list.keys.font])
+		UseFont(fs, db.fontSize)
 		fs:Hide()
 		list.fonts[i] = fs
 	end
 
-	-- One fade function per list, built when the frame is. Not per hit.
+	-- Built when the frame is. Not per hit.
 	list.fade = function()
-		Fade(list)
+		Fade()
 	end
 end
 
 function ns.ApplyLock()
-	if not ns.db then
+	if not ns.db or not list.frame then
 		return
 	end
 	local locked = ns.db.lockPosition
-	for i = 1, #lists do
-		local list = lists[i]
-		if list.frame then
-			list.frame:EnableMouse(not locked)
-			list.frame:SetMovable(not locked)
-			list.backdrop:SetShown(not locked)
-			if list.hint then
-				list.hint:SetShown(not locked)
-			end
-		end
+	list.frame:EnableMouse(not locked)
+	list.frame:SetMovable(not locked)
+	list.backdrop:SetShown(not locked)
+	if locked then
+		GameTooltip:Hide()
 	end
 end
 
-function ns.RefreshList(which)
-	if not ns.db then
+function ns.RefreshList()
+	if not ns.db or not list.frame then
 		return
 	end
-	for i = 1, #lists do
-		local list = lists[i]
-		if list.frame and (not which or list.prefix == which) then
-			list.frame:SetSize(WIDTH, FrameHeight(list))
-			Paint(list)
-		end
-	end
+	Paint()
 	ns.ApplyLock()
 end
 
 function ns.SetListShown(shown)
-	if not incoming.frame then
+	if not list.frame then
 		if not shown then
 			return
 		end
 		ns.InitList()
-		if not incoming.frame then
+		if not list.frame then
 			return
 		end
 	end
-	for i = 1, #lists do
-		local list = lists[i]
-		local visible = shown and SectionOn(list)
-		list.frame:SetShown(visible)
-		if not visible then
-			list.watchingFade = false
-			list.frame:SetScript("OnUpdate", nil)
-		else
-			local count = ns.db[list.keys.lines]
-			for n = 1, count do
-				if list.slots[n].active then
-					StartFade(list)
-					break
-				end
-			end
+	list.frame:SetShown(shown)
+	if not shown then
+		list.watchingFade = false
+		list.frame:SetScript("OnUpdate", nil)
+		return
+	end
+	local count = ns.db.lines
+	for n = 1, count do
+		if list.slots[n].active then
+			StartFade()
+			return
 		end
 	end
 end
 
 function ns.InitList()
-	if incoming.frame or not ns.db then
+	if list.frame or not ns.db then
 		return
 	end
-	for i = 1, #lists do
-		Bind(lists[i])
-	end
+	Bind()
 	ns.ApplyLock()
 end
 
-local function AddTo(list, text, color, crit)
+function ns.AddLine(text, color, crit)
 	if not ns.db or type(text) ~= "string" or text == "" then
 		return
 	end
 	ns.InitList()
 	list.frame:Show()
-	local count = ns.db[list.keys.lines]
+	local count = ns.db.lines
 	for i = count, 2, -1 do
 		CopySlot(list.slots[i], list.slots[i - 1])
 	end
@@ -474,50 +410,13 @@ local function AddTo(list, text, color, crit)
 	top.born = GetTime()
 	top.crit = crit and true or false
 	top.active = true
-	Paint(list)
-	StartFade(list)
-end
-
-function ns.AddIncoming(text, color, crit)
-	AddTo(incoming, text, color, crit)
-end
-
-function ns.AddOutgoing(text, color, crit)
-	AddTo(outgoing, text, color, crit)
+	Paint()
+	StartFade()
 end
 
 function ns.ShowTest()
-	local icon = "Interface\\Icons\\INV_Sword_04"
-	local order = ns.db.lineOrder
-	local shorten = ns.OrderHas(order, "name") and ns.db.shortSpellNames
-	local function sample(amount, name, crit, white)
-		local size = ns.db.outFontSize
-		if crit then
-			size = ns.db.outCritSize
-		end
-		local useIcon = ns.OrderHas(order, "icon")
-		if white then
-			useIcon = useIcon and ns.db.iconWhite
-			name = nil
-		elseif crit then
-			useIcon = useIcon and ns.db.iconCrits
-		else
-			useIcon = useIcon and ns.db.iconNormal
-		end
-		return ns.FormatLine(amount, name, icon, size, order, shorten, useIcon)
-	end
-	local function interrupted(name)
-		local body = sample(nil, name, false, false)
-		if body == "" then
-			return "Interrupted"
-		end
-		return "Interrupted " .. body
-	end
-	ns.AddIncoming("Dodge", "miss", false)
-	ns.AddIncoming("+640", "heal", false)
-	ns.AddIncoming("1,284", "physical", false)
-	ns.AddOutgoing(interrupted("Fireball"), "interrupt", false)
-	ns.AddOutgoing(sample("+1,200", "Heal", false, false), "heal", false)
-	ns.AddOutgoing(sample("1,902", "Fireball", true, false), "fire", true)
-	ns.AddOutgoing(sample("842", nil, false, true), "physical", false)
+	ns.AddLine("Dodge", "miss", false)
+	ns.AddLine("+640", "heal", false)
+	ns.AddLine("1,284", "physical", false)
+	ns.AddLine("1,902", "fire", true)
 end

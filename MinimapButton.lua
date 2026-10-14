@@ -5,7 +5,7 @@ local ADDON_NAME, ns = ...
 -- button collectors look for. Both read and write
 -- db.minimapIcon.
 
-local TITLE = "Combat Text"
+local TITLE = "Incoming Text"
 local ICON = "Interface\\Icons\\INV_Sword_04"
 local CLICK_TEXT = "Click for settings."
 local DRAG_TEXT = "Drag to move."

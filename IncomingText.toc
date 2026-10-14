@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Incoming Text
+## Notes: A scrolling list of damage and healing that land on you.
+## Author: Joipov
+## Version: 2.0.0
+## Category: |cff8b5cf6Joipov|r Tools
+## IconTexture: Interface\Icons\INV_Sword_04
+## SavedVariables: IncomingTextDB
+## OptionalDeps: LibStub, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0
+## AddonCompartmentFunc: IncomingText_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: IncomingText_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: IncomingText_OnAddonCompartmentLeave
+## AllowLoadGameType: forever
+## ExcludeLoadGameType: standard, classic
+## X-License: MIT
+## X-Website: https://github.com/joipov/IncomingText
+
+Database.lua
+List.lua
+Events.lua
+MinimapButton.lua
+Options.lua
