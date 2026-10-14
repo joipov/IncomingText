@@ -111,41 +111,64 @@ local function IsCrit(flagText)
 	return PlainString(flagText) == "CRITICAL"
 end
 
+local function DamageCfg()
+	return ns.db and ns.db.damage
+end
+
+local function HealCfg()
+	return ns.db and ns.db.heal
+end
+
 local function AddMiss(kind)
-	if not ns.db.showMisses then
+	local cfg = DamageCfg()
+	if not cfg or not cfg.enabled or not cfg.showMisses then
 		return
 	end
 	local label = MISS_LABEL[kind]
 	if not label then
 		return
 	end
-	ns.AddLine(label, "miss", false)
+	ns.AddLine(ns.damageList, label, "miss", false)
 end
 
 local function AddDamage(amount, school, crit)
-	if not ns.db.showDamage then
+	local cfg = DamageCfg()
+	if not cfg or not cfg.enabled then
 		return
 	end
 	local n = PlainNumber(amount)
 	if not n or n <= 0 then
 		return
 	end
-	ns.AddLine(FormatAmount(n), SchoolName(school), crit)
+	ns.AddLine(ns.damageList, "-" .. FormatAmount(n), SchoolName(school), crit)
 end
 
 local function AddHeal(amount, crit)
-	if not ns.db.showHealing then
+	local cfg = HealCfg()
+	if not cfg or not cfg.enabled then
 		return
 	end
 	local n = PlainNumber(amount)
 	if not n or n <= 0 then
 		return
 	end
-	ns.AddLine("+" .. FormatAmount(n), "heal", crit)
+	ns.AddLine(ns.healList, "+" .. FormatAmount(n), "heal", crit)
+end
+
+local function AddCombat(entering)
+	local cfg = DamageCfg()
+	if not cfg or not cfg.enabled or not cfg.showCombat then
+		return
+	end
+	if entering then
+		ns.AddLine(ns.damageList, "+Combat", "combat", false)
+	else
+		ns.AddLine(ns.damageList, "-Combat", "combat", false)
+	end
 end
 
 local function HandleCombat(unit, action, flagText, amount, school)
-	if not ns.db or not ns.db.enabled then
+	if not ns.db then
 		return
 	end
 	if PlainString(unit) ~= "player" then
@@ -170,14 +193,23 @@ function ns.ApplyWatching()
 		return
 	end
 	eventFrame:UnregisterEvent("UNIT_COMBAT")
-	if not ns.db.enabled then
-		ns.SetListShown(false)
-		return
+	eventFrame:UnregisterEvent("PLAYER_REGEN_DISABLED")
+	eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	local damage = DamageCfg()
+	local heal = HealCfg()
+	ns.InitLists()
+	if damage then
+		ns.damageList:SetShown(damage.enabled)
 	end
-	ns.InitList()
-	ns.SetListShown(true)
-	if ns.db.showDamage or ns.db.showHealing or ns.db.showMisses then
+	if heal then
+		ns.healList:SetShown(heal.enabled)
+	end
+	if (damage and damage.enabled) or (heal and heal.enabled) then
 		eventFrame:RegisterUnitEvent("UNIT_COMBAT", "player")
+	end
+	if damage and damage.enabled and damage.showCombat then
+		eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+		eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 	end
 end
 
@@ -188,7 +220,7 @@ function handlers.ADDON_LOADED(name)
 	eventFrame:UnregisterEvent("ADDON_LOADED")
 	_G.IncomingTextDB = ns.LoadDB(_G.IncomingTextDB)
 	ns.db = _G.IncomingTextDB
-	ns.InitList()
+	ns.InitLists()
 	ns.InitOptions()
 	ns.ApplyWatching()
 	eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -201,6 +233,14 @@ end
 
 function handlers.UNIT_COMBAT(unit, action, flagText, amount, school)
 	HandleCombat(unit, action, flagText, amount, school)
+end
+
+function handlers.PLAYER_REGEN_DISABLED()
+	AddCombat(true)
+end
+
+function handlers.PLAYER_REGEN_ENABLED()
+	AddCombat(false)
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)

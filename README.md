@@ -1,15 +1,15 @@
 # Incoming Text
 
-A scrolling list of damage, healing, and misses that land on you. The list has its own place, size, face, and direction.
+A scrolling damage list and a scrolling healing list. Each has its own place, size, face, and direction. Dodge, parry, and the other misses stay on the damage list, as do `+Combat` and `-Combat`.
 
 Target client: World of Warcraft **Forever** (`## Interface: 16001`).
 
 ## Features
 
-- Damage, healing, and misses are hits on you. **Show damage**, **Show healing**, and **Show misses** choose which lines appear.
-- **Font**, **Font size**, **Crit size**, and **Opacity** set the text. Lines sit on the left or the right, and new lines grow up or down. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag the corner square. Right-click the square to lock it.
-- Physical hits, critical hits, each spell school, healing, and misses each have a color on the same page. A critical hit uses the critical color.
-- Minimap launcher via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
+- Damage, misses, and combat state go to the damage list. Healing goes to the healing list. Each list has its own **Enable**. The damage list also has **Show misses** and **Show combat**. **Show combat** prints `+Combat` when you enter combat and `-Combat` when you leave.
+- Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, and **Grow**. The same rows on the main page write those values onto both lists. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or either edge. Right-click it to lock.
+- The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color.
+- One minimap launcher, via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
 ## Commands
 
@@ -26,10 +26,10 @@ Loaded in TOC order; modules communicate only through the shared `ns` table.
 | File | Concern |
 | --- | --- |
 | `Database.lua` | SavedVariables defaults and validation |
-| `List.lua` | Line pool, fade, drag position |
+| `List.lua` | Two line pools, fade, drag position |
 | `Events.lua` | Hits on you, login line |
 | `MinimapButton.lua` | LibDBIcon launcher or built-in button, addon compartment |
-| `Options.lua` | Settings page, slash commands |
+| `Options.lua` | Damage and Healing settings pages, slash commands |
 
 ## Development
 

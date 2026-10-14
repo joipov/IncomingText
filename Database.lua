@@ -1,10 +1,11 @@
 local _, ns = ...
 
 -- Saved variables: defaults and validation. Plain Lua, so the tests can load
--- it without a client.
+-- it without a client. Damage and healing are separate list tables.
 
-local DB_VERSION = 1
+local DB_VERSION = 3
 local MINIMAP_POS = 190
+local HEAL_SHIFT = -160
 
 local POINTS = {
 	CENTER = true,
@@ -34,15 +35,15 @@ local COLOR_DEFAULTS = {
 	crit = { 1, 0.82, 0 },
 	holy = { 1, 0.90, 0.50 },
 	fire = { 1, 0.50, 0.20 },
-	nature = { 0.30, 0.90, 0.30 },
+	nature = { 0.55, 0.75, 0.15 },
 	frost = { 0.50, 0.85, 1 },
 	shadow = { 0.70, 0.40, 0.90 },
 	arcane = { 0.90, 0.50, 0.90 },
-	heal = { 0.30, 0.95, 0.45 },
+	heal = { 0.20, 0.90, 0.55 },
 	miss = { 0.75, 0.75, 0.75 },
 }
 
-local COLOR_KEYS = {
+local DAMAGE_COLORS = {
 	"physical",
 	"crit",
 	"holy",
@@ -51,29 +52,80 @@ local COLOR_KEYS = {
 	"frost",
 	"shadow",
 	"arcane",
-	"heal",
 	"miss",
 }
 
--- Scalars only. Tables are built fresh in EnsureTables.
+local HEAL_COLORS = {
+	"heal",
+	"crit",
+}
+
+local OLD_KEYS = {
+	"enabled",
+	"lockPosition",
+	"showDamage",
+	"showHealing",
+	"showMisses",
+	"showCombat",
+	"fontSize",
+	"critSize",
+	"font",
+	"opacity",
+	"fadeTime",
+	"lines",
+	"align",
+	"grow",
+	"point",
+	"relPoint",
+	"x",
+	"y",
+	"colors",
+}
+
+local COPY_KEYS = {
+	"lockPosition",
+	"fontSize",
+	"critSize",
+	"font",
+	"opacity",
+	"fadeTime",
+	"lines",
+	"align",
+	"grow",
+	"point",
+	"relPoint",
+	"x",
+	"y",
+}
+
+local function ListScalars(y)
+	return {
+		enabled = true,
+		lockPosition = true,
+		fontSize = 16,
+		critSize = 22,
+		font = "Friz Quadrata",
+		opacity = 100,
+		fadeTime = 1,
+		lines = 12,
+		align = "RIGHT",
+		grow = "DOWN",
+		point = "CENTER",
+		relPoint = "CENTER",
+		x = -260,
+		y = y,
+	}
+end
+
+local damageDefaults = ListScalars(80)
+damageDefaults.showMisses = true
+damageDefaults.showCombat = true
+
+local healDefaults = ListScalars(80 + HEAL_SHIFT)
+
+-- Root scalars only. List tables are built in EnsureLists.
 local defaults = {
-	enabled = true,
 	showMinimapButton = true,
-	lockPosition = true,
-	showDamage = true,
-	showHealing = true,
-	showMisses = true,
-	fontSize = 16,
-	critSize = 22,
-	font = "Friz Quadrata",
-	opacity = 100,
-	lines = 12,
-	align = "RIGHT",
-	grow = "DOWN",
-	point = "CENTER",
-	relPoint = "CENTER",
-	x = -260,
-	y = 80,
 }
 
 local function ClampNumber(value, lo, hi, fallback)
@@ -93,39 +145,22 @@ local function ClampChannel(value, fallback)
 	return ClampNumber(value, 0, 1, fallback)
 end
 
-local function EnsureColors(db)
-	if type(db.colors) ~= "table" then
-		db.colors = {}
+local function EnsureColors(list, keys)
+	if type(list.colors) ~= "table" then
+		list.colors = {}
 	end
-	for i = 1, #COLOR_KEYS do
-		local key = COLOR_KEYS[i]
+	for i = 1, #keys do
+		local key = keys[i]
 		local fallback = COLOR_DEFAULTS[key]
-		local row = db.colors[key]
+		local row = list.colors[key]
 		if type(row) ~= "table" then
 			row = {}
-			db.colors[key] = row
+			list.colors[key] = row
 		end
 		row.r = ClampChannel(row.r, fallback[1])
 		row.g = ClampChannel(row.g, fallback[2])
 		row.b = ClampChannel(row.b, fallback[3])
 	end
-end
-
-local function EnsureTables(db)
-	if type(db.minimapIcon) ~= "table" then
-		db.minimapIcon = {}
-	end
-	db.minimapIcon.minimapPos = ClampNumber(db.minimapIcon.minimapPos, 0, 360, MINIMAP_POS)
-	EnsureColors(db)
-end
-
-local function CopyDefaults(db)
-	for key, value in pairs(defaults) do
-		if type(db[key]) ~= type(value) then
-			db[key] = value
-		end
-	end
-	EnsureTables(db)
 end
 
 local function Anchor(value, fallback)
@@ -149,29 +184,164 @@ local function FontName(value, fallback)
 	return value
 end
 
+local function ValidateList(list, listDefaults)
+	list.fontSize = math.floor(ClampNumber(list.fontSize, 10, 32, listDefaults.fontSize) + 0.5)
+	list.critSize = math.floor(ClampNumber(list.critSize, 10, 48, listDefaults.critSize) + 0.5)
+	list.font = FontName(list.font, listDefaults.font)
+	list.opacity = math.floor(ClampNumber(list.opacity, 10, 100, listDefaults.opacity) + 0.5)
+	list.fadeTime = math.floor(ClampNumber(list.fadeTime, 0, 10, listDefaults.fadeTime) + 0.5)
+	list.lines = math.floor(ClampNumber(list.lines, 4, 24, listDefaults.lines) + 0.5)
+	list.align = Choice(list.align, ALIGNS, listDefaults.align)
+	list.grow = Choice(list.grow, GROWS, listDefaults.grow)
+	list.point = Anchor(list.point, listDefaults.point)
+	list.relPoint = Anchor(list.relPoint, listDefaults.relPoint)
+	list.x = ClampNumber(list.x, -4000, 4000, listDefaults.x)
+	list.y = ClampNumber(list.y, -4000, 4000, listDefaults.y)
+end
+
+local function EnsureList(list, listDefaults, colorKeys)
+	if type(list) ~= "table" then
+		list = {}
+	end
+	for key, value in pairs(listDefaults) do
+		if type(list[key]) ~= type(value) then
+			list[key] = value
+		end
+	end
+	ValidateList(list, listDefaults)
+	EnsureColors(list, colorKeys)
+	return list
+end
+
+local function EnsureLists(db)
+	if type(db.minimapIcon) ~= "table" then
+		db.minimapIcon = {}
+	end
+	db.minimapIcon.minimapPos = ClampNumber(db.minimapIcon.minimapPos, 0, 360, MINIMAP_POS)
+	db.damage = EnsureList(db.damage, damageDefaults, DAMAGE_COLORS)
+	db.heal = EnsureList(db.heal, healDefaults, HEAL_COLORS)
+end
+
+local function CopyDefaults(db)
+	if type(db.showMinimapButton) ~= "boolean" then
+		db.showMinimapButton = defaults.showMinimapButton
+	end
+	EnsureLists(db)
+end
+
 local function Validate(db)
-	db.fontSize = math.floor(ClampNumber(db.fontSize, 10, 32, defaults.fontSize) + 0.5)
-	db.critSize = math.floor(ClampNumber(db.critSize, 10, 48, defaults.critSize) + 0.5)
-	db.font = FontName(db.font, defaults.font)
-	db.opacity = math.floor(ClampNumber(db.opacity, 10, 100, defaults.opacity) + 0.5)
-	db.lines = math.floor(ClampNumber(db.lines, 4, 24, defaults.lines) + 0.5)
-	db.align = Choice(db.align, ALIGNS, defaults.align)
-	db.grow = Choice(db.grow, GROWS, defaults.grow)
-	db.point = Anchor(db.point, defaults.point)
-	db.relPoint = Anchor(db.relPoint, defaults.relPoint)
-	db.x = ClampNumber(db.x, -4000, 4000, defaults.x)
-	db.y = ClampNumber(db.y, -4000, 4000, defaults.y)
-	EnsureColors(db)
+	EnsureLists(db)
+end
+
+local function Near(a, b)
+	return type(a) == "number" and math.abs(a - b) < 0.02
+end
+
+-- Only the original pair. A color the player chose stays.
+local function Retint(db, key, oldR, oldG, oldB)
+	local colors = db.colors
+	local row = colors and colors[key]
+	local fallback = COLOR_DEFAULTS[key]
+	if type(row) ~= "table" or not fallback then
+		return
+	end
+	if Near(row.r, oldR) and Near(row.g, oldG) and Near(row.b, oldB) then
+		row.r = fallback[1]
+		row.g = fallback[2]
+		row.b = fallback[3]
+	end
+end
+
+local function CopyColorRow(row)
+	if type(row) ~= "table" then
+		return nil
+	end
+	return { r = row.r, g = row.g, b = row.b }
+end
+
+local function CopyColorSet(src, keys)
+	local out = {}
+	if type(src) ~= "table" then
+		return out
+	end
+	for i = 1, #keys do
+		local key = keys[i]
+		local row = CopyColorRow(src[key])
+		if row then
+			out[key] = row
+		end
+	end
+	return out
+end
+
+local function On(value)
+	if type(value) == "boolean" then
+		return value
+	end
+	return true
+end
+
+local function Snapshot(db, yOffset)
+	local list = {}
+	for i = 1, #COPY_KEYS do
+		local key = COPY_KEYS[i]
+		if db[key] ~= nil then
+			list[key] = db[key]
+		end
+	end
+	if type(list.y) == "number" then
+		list.y = list.y + yOffset
+	end
+	return list
+end
+
+-- A flat save becomes two lists. Damage keeps the point. Healing sits below it.
+local function SplitLists(db)
+	local master = On(db.enabled)
+	local damage = Snapshot(db, 0)
+	local heal = Snapshot(db, HEAL_SHIFT)
+	damage.enabled = master and On(db.showDamage)
+	heal.enabled = master and On(db.showHealing)
+	if type(db.showMisses) == "boolean" then
+		damage.showMisses = db.showMisses
+	end
+	if type(db.showCombat) == "boolean" then
+		damage.showCombat = db.showCombat
+	end
+	damage.colors = CopyColorSet(db.colors, DAMAGE_COLORS)
+	heal.colors = CopyColorSet(db.colors, HEAL_COLORS)
+	db.damage = damage
+	db.heal = heal
+	for i = 1, #OLD_KEYS do
+		db[OLD_KEYS[i]] = nil
+	end
+end
+
+local function MigrateDB(db)
+	local version = db.version
+	if type(version) ~= "number" then
+		version = 0
+	end
+	if version < 2 then
+		Retint(db, "nature", 0.30, 0.90, 0.30)
+		Retint(db, "heal", 0.30, 0.95, 0.45)
+	end
+	if version < 3 then
+		SplitLists(db)
+	end
+	db.version = DB_VERSION
 end
 
 function ns.LoadDB(saved)
 	ns.firstRun = type(saved) ~= "table"
 	local db = ns.firstRun and {} or saved
-	db.version = DB_VERSION
+	MigrateDB(db)
 	CopyDefaults(db)
 	Validate(db)
 	return db
 end
 
 ns.defaults = defaults
+ns.damageDefaults = damageDefaults
+ns.healDefaults = healDefaults
 ns.DB_VERSION = DB_VERSION

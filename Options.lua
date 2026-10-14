@@ -1,7 +1,8 @@
 local _, ns = ...
 
--- Settings panel. One page holds every row. Rows are registered from
--- Blizzard's delegate so the settings search stays secure.
+-- Settings panel. The parent page sets both lists at once. Each list still has
+-- its own page. Rows are registered from Blizzard's delegate so the settings
+-- search stays secure.
 
 local Settings = Settings
 local ColorPickerFrame = ColorPickerFrame
@@ -15,17 +16,20 @@ local GROWS = {
 	{ "DOWN", "Down" },
 	{ "UP", "Up" },
 }
-local COLOR_ROWS = {
+local DAMAGE_COLORS = {
 	{ "physical", "Physical hits", "Physical damage you take." },
-	{ "crit", "Critical hits", "A critical hit uses this color instead of the school or heal color." },
+	{ "crit", "Critical hits", "A critical hit uses this color instead of the school color." },
 	{ "holy", "Holy", "Holy damage you take." },
 	{ "fire", "Fire", "Fire damage you take." },
 	{ "nature", "Nature", "Nature damage you take." },
 	{ "frost", "Frost", "Frost damage you take." },
 	{ "shadow", "Shadow", "Shadow damage you take." },
 	{ "arcane", "Arcane", "Arcane damage you take." },
-	{ "heal", "Healing", "Healing that lands on you and is not a critical hit." },
 	{ "miss", "Misses", "Miss, dodge, parry, block, and similar lines." },
+}
+local HEAL_COLORS = {
+	{ "heal", "Healing", "Healing that lands on you and is not a critical hit." },
+	{ "crit", "Critical hits", "A critical heal uses this color instead of the heal color." },
 }
 
 local function Clamp(value, lo, hi, fallback)
@@ -54,15 +58,15 @@ local function Clamp01(value, fallback)
 	return value
 end
 
--- Rows other than the enable switch grey out while the addon is off.
-local function Gate(initializer)
+-- Rows other than the enable switch grey out while that list is off.
+local function Gate(initializer, storage, varName)
 	initializer:AddModifyPredicate(function()
-		if not ns.db or not ns.db.enabled then
+		if not storage or not storage.enabled then
 			return false
 		end
 		return true
 	end)
-	initializer:AddEvaluateStateCVar("IT_ENABLED")
+	initializer:AddEvaluateStateCVar(varName)
 end
 
 function ns.OpenSettings()
@@ -83,62 +87,249 @@ function ns.InitOptions()
 	local category = Settings.RegisterVerticalLayoutCategory("Incoming Text")
 	ns.settingsCategory = category
 
-	local function AddCheckbox(var, key, label, tooltip, onChanged, gated)
-		local setting = Settings.RegisterAddOnSetting(
-			category,
-			var,
-			key,
-			ns.db,
-			Settings.VarType.Boolean,
-			label,
-			ns.defaults[key]
-		)
-		if onChanged then
-			setting:SetValueChangedCallback(onChanged)
+	local minimap = Settings.RegisterAddOnSetting(
+		category,
+		"IT_SHOW_MINIMAP",
+		"showMinimapButton",
+		ns.db,
+		Settings.VarType.Boolean,
+		"Minimap button",
+		ns.defaults.showMinimapButton
+	)
+	minimap:SetValueChangedCallback(function()
+		ns.UpdateMinimapButton()
+	end)
+	Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(
+		minimap,
+		nil,
+		"Button on the minimap. Opens settings."
+	))
+
+	-- Set while a main-page change is being copied onto both lists, so a list
+	-- checkbox does not write that change back and lock the other list too.
+	local applying = false
+	local bothLock
+	local shared
+	local SyncBothLock
+
+	local function BuildPage(page, prefix, storage, listDefaults, listObj, colorRows, damageFlags)
+		local enableVar = prefix .. "_ENABLED"
+
+		local function AddCheckbox(var, key, label, tooltip, onChanged, gated)
+			local setting = Settings.RegisterAddOnSetting(
+				page,
+				var,
+				key,
+				storage,
+				Settings.VarType.Boolean,
+				label,
+				listDefaults[key]
+			)
+			if onChanged then
+				setting:SetValueChangedCallback(onChanged)
+			end
+			local initializer = Settings.CreateCheckboxInitializer(setting, nil, tooltip)
+			if gated then
+				Gate(initializer, storage, enableVar)
+			end
+			Settings.RegisterInitializer(page, initializer)
+			return setting
 		end
-		local initializer = Settings.CreateCheckboxInitializer(setting, nil, tooltip)
-		if gated then
-			Gate(initializer)
+
+		local function AddSlider(var, key, label, tooltip, lo, hi, step)
+			local setting = Settings.RegisterAddOnSetting(
+				page,
+				var,
+				key,
+				storage,
+				Settings.VarType.Number,
+				label,
+				listDefaults[key]
+			)
+			setting:SetValueChangedCallback(function()
+				storage[key] = math.floor(Clamp(storage[key], lo, hi, listDefaults[key]) + 0.5)
+				listObj:Refresh()
+			end)
+			local options = Settings.CreateSliderOptions(lo, hi, step)
+			options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
+				return string.format("%.0f", value)
+			end)
+			local initializer = Settings.CreateSliderInitializer(setting, options, tooltip)
+			Gate(initializer, storage, enableVar)
+			Settings.RegisterInitializer(page, initializer)
+			return setting
 		end
-		Settings.RegisterInitializer(category, initializer)
-		return setting
+
+		local function AddDropdown(var, key, label, tooltip, choices)
+			local setting = Settings.RegisterAddOnSetting(
+				page,
+				var,
+				key,
+				storage,
+				Settings.VarType.String,
+				label,
+				listDefaults[key]
+			)
+			setting:SetValueChangedCallback(function()
+				listObj:Refresh()
+			end)
+			local initializer = Settings.CreateDropdownInitializer(setting, function()
+				local rows = choices
+				if type(choices) == "function" then
+					rows = choices()
+				end
+				local container = Settings.CreateControlTextContainer()
+				for i = 1, #rows do
+					container:Add(rows[i][1], rows[i][2])
+				end
+				return container:GetData()
+			end, tooltip)
+			Gate(initializer, storage, enableVar)
+			Settings.RegisterInitializer(page, initializer)
+			return setting
+		end
+
+		local function AddColor(key, label, tooltip)
+			local function SetColor(r, g, b)
+				local row = storage.colors and storage.colors[key]
+				if type(row) ~= "table" then
+					row = {}
+					storage.colors[key] = row
+				end
+				row.r = Clamp01(r, 1)
+				row.g = Clamp01(g, 1)
+				row.b = Clamp01(b, 1)
+				listObj:Refresh()
+			end
+			local function Open()
+				local row = storage.colors and storage.colors[key]
+				local r = row and row.r or 1
+				local g = row and row.g or 1
+				local b = row and row.b or 1
+				ColorPickerFrame:SetupColorPickerAndShow({
+					r = r,
+					g = g,
+					b = b,
+					hasOpacity = false,
+					swatchFunc = function()
+						SetColor(ColorPickerFrame:GetColorRGB())
+					end,
+					cancelFunc = function()
+						SetColor(r, g, b)
+					end,
+				})
+			end
+			local initializer = CreateSettingsButtonInitializer(label, "Choose color", Open, tooltip, true)
+			Gate(initializer, storage, enableVar)
+			Settings.RegisterInitializer(page, initializer)
+		end
+
+		local function OnWatch()
+			ns.ApplyWatching()
+		end
+
+		local controls = {}
+		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", "Enable " .. (damageFlags and "damage" or "healing"), damageFlags and "Damage, misses, and combat state." or "Healing that lands on you.", OnWatch, false)
+		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or either edge while this is off. Right-click it to lock.", function()
+			listObj:ApplyLock()
+			if SyncBothLock then
+				SyncBothLock()
+			end
+		end, true)
+		listObj.lockSetting = controls.lockPosition
+		if damageFlags then
+			controls.showMisses = AddCheckbox(prefix .. "_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnWatch, true)
+			controls.showCombat = AddCheckbox(prefix .. "_COMBAT", "showCombat", "Show combat", "Entering and leaving combat.", OnWatch, true)
+		end
+		controls.font = AddDropdown(prefix .. "_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
+		controls.fontSize = AddSlider(prefix .. "_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
+		controls.critSize = AddSlider(prefix .. "_CRIT_SIZE", "critSize", "Crit size", "Size of a critical line.", 10, 48, 1)
+		controls.opacity = AddSlider(prefix .. "_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
+		controls.fadeTime = AddSlider(prefix .. "_FADE", "fadeTime", "Fade time", "How long a line takes to fade out, in seconds.", 0, 10, 1)
+		controls.lines = AddSlider(prefix .. "_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
+		controls.align = AddDropdown(prefix .. "_ALIGN", "align", "Text align", "Which side the lines sit on.", ALIGNS)
+		controls.grow = AddDropdown(prefix .. "_GROW", "grow", "Grow", "Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+
+		for i = 1, #colorRows do
+			local row = colorRows[i]
+			AddColor(row[1], row[2], row[3])
+		end
+		return controls
 	end
 
-	local function AddSlider(var, key, label, tooltip, lo, hi, step)
+	local damagePage = Settings.RegisterVerticalLayoutSubcategory(category, "Damage")
+	local healPage = Settings.RegisterVerticalLayoutSubcategory(category, "Healing")
+	local damageControls = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, true)
+	local healControls = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, false)
+
+	-- Not saved. A change here is written onto both lists, which keep their own copies.
+	local damage = ns.db.damage
+	local heal = ns.db.heal
+	shared = {
+		lockPosition = damage.lockPosition and heal.lockPosition,
+		font = damage.font,
+		fontSize = damage.fontSize,
+		critSize = damage.critSize,
+		opacity = damage.opacity,
+		fadeTime = damage.fadeTime,
+		lines = damage.lines,
+		align = damage.align,
+		grow = damage.grow,
+	}
+
+	local function Push(key)
+		if applying then
+			return
+		end
+		applying = true
+		damageControls[key]:SetValue(shared[key])
+		healControls[key]:SetValue(shared[key])
+		applying = false
+	end
+
+	SyncBothLock = function()
+		if applying or not bothLock then
+			return
+		end
+		applying = true
+		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition
+		bothLock:SetValue(shared.lockPosition)
+		applying = false
+	end
+
+	local function AddSharedSlider(var, key, label, tooltip, lo, hi, step)
 		local setting = Settings.RegisterAddOnSetting(
 			category,
 			var,
 			key,
-			ns.db,
+			shared,
 			Settings.VarType.Number,
 			label,
-			ns.defaults[key]
+			ns.damageDefaults[key]
 		)
 		setting:SetValueChangedCallback(function()
-			ns.db[key] = math.floor(Clamp(ns.db[key], lo, hi, ns.defaults[key]) + 0.5)
-			ns.RefreshList()
+			shared[key] = math.floor(Clamp(shared[key], lo, hi, ns.damageDefaults[key]) + 0.5)
+			Push(key)
 		end)
 		local options = Settings.CreateSliderOptions(lo, hi, step)
 		options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
 			return string.format("%.0f", value)
 		end)
-		local initializer = Settings.CreateSliderInitializer(setting, options, tooltip)
-		Gate(initializer)
-		Settings.RegisterInitializer(category, initializer)
+		Settings.RegisterInitializer(category, Settings.CreateSliderInitializer(setting, options, tooltip))
 	end
 
-	local function AddDropdown(var, key, label, tooltip, choices)
+	local function AddSharedDropdown(var, key, label, tooltip, choices)
 		local setting = Settings.RegisterAddOnSetting(
 			category,
 			var,
 			key,
-			ns.db,
+			shared,
 			Settings.VarType.String,
 			label,
-			ns.defaults[key]
+			ns.damageDefaults[key]
 		)
 		setting:SetValueChangedCallback(function()
-			ns.RefreshList()
+			Push(key)
 		end)
 		local initializer = Settings.CreateDropdownInitializer(setting, function()
 			local rows = choices
@@ -151,74 +342,36 @@ function ns.InitOptions()
 			end
 			return container:GetData()
 		end, tooltip)
-		Gate(initializer)
 		Settings.RegisterInitializer(category, initializer)
 	end
 
-	local function AddColor(key, label, tooltip)
-		local function SetColor(r, g, b)
-			local row = ns.db.colors and ns.db.colors[key]
-			if type(row) ~= "table" then
-				row = {}
-				ns.db.colors[key] = row
-			end
-			row.r = Clamp01(r, 1)
-			row.g = Clamp01(g, 1)
-			row.b = Clamp01(b, 1)
-			ns.RefreshList()
-		end
-		local function Open()
-			local row = ns.db.colors and ns.db.colors[key]
-			local r = row and row.r or 1
-			local g = row and row.g or 1
-			local b = row and row.b or 1
-			ColorPickerFrame:SetupColorPickerAndShow({
-				r = r,
-				g = g,
-				b = b,
-				hasOpacity = false,
-				swatchFunc = function()
-					SetColor(ColorPickerFrame:GetColorRGB())
-				end,
-				cancelFunc = function()
-					SetColor(r, g, b)
-				end,
-			})
-		end
-		local initializer = CreateSettingsButtonInitializer(label, "Choose color", Open, tooltip, true)
-		Gate(initializer)
-		Settings.RegisterInitializer(category, initializer)
+	local function AddSharedCheckbox(var, key, label, tooltip)
+		local setting = Settings.RegisterAddOnSetting(
+			category,
+			var,
+			key,
+			shared,
+			Settings.VarType.Boolean,
+			label,
+			ns.damageDefaults[key]
+		)
+		setting:SetValueChangedCallback(function()
+			Push(key)
+		end)
+		Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(setting, nil, tooltip))
+		return setting
 	end
 
-	local function OnDisplay()
-		ns.ApplyWatching()
-	end
+	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks both lists. Drag either area while this is off. Right-click an area to lock it.")
 
-	AddCheckbox("IT_ENABLED", "enabled", "Enable Incoming Text", "Damage, healing, and misses that land on you.", function()
-		ns.ApplyWatching()
-	end, false)
-	AddCheckbox("IT_SHOW_MINIMAP", "showMinimapButton", "Minimap button", "Button on the minimap. Opens settings.", function()
-		ns.UpdateMinimapButton()
-	end, false)
-	ns.lockSetting = AddCheckbox("IT_LOCK", "lockPosition", "Lock position", "Drag the corner square while this is off. Right-click the square to lock it.", function()
-		ns.ApplyLock()
-	end, true)
-
-	AddCheckbox("IT_DAMAGE", "showDamage", "Show damage", "Damage you take.", OnDisplay, true)
-	AddCheckbox("IT_HEALING", "showHealing", "Show healing", "Healing that lands on you.", OnDisplay, true)
-	AddCheckbox("IT_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnDisplay, true)
-	AddDropdown("IT_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
-	AddSlider("IT_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
-	AddSlider("IT_CRIT_SIZE", "critSize", "Crit size", "Size of a critical hit.", 10, 48, 1)
-	AddSlider("IT_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
-	AddSlider("IT_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
-	AddDropdown("IT_ALIGN", "align", "Text align", "Which side the lines sit on.", ALIGNS)
-	AddDropdown("IT_GROW", "grow", "Grow", "Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
-
-	for i = 1, #COLOR_ROWS do
-		local row = COLOR_ROWS[i]
-		AddColor(row[1], row[2], row[3])
-	end
+	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on both lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
+	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on both lists.", 10, 32, 1)
+	AddSharedSlider("IT_BOTH_CRIT_SIZE", "critSize", "Crit size", "Sets the critical line size on both lists.", 10, 48, 1)
+	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on both lists.", 10, 100, 1)
+	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on both lists, in seconds.", 0, 10, 1)
+	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for both lists.", 4, 24, 1)
+	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets which side the lines sit on for both lists.", ALIGNS)
+	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on both lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
 
 	Settings.RegisterAddOnCategory(category)
 end

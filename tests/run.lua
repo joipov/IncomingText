@@ -35,41 +35,57 @@ end
 test("LoadDB fills defaults and reports a first run", function()
 	local db = ns.LoadDB(nil)
 	eq(ns.firstRun, true, "firstRun")
-	eq(db.enabled, true, "enabled")
 	eq(db.showMinimapButton, true, "showMinimapButton")
-	eq(db.lockPosition, true, "lockPosition")
-	eq(db.showDamage, true, "showDamage")
-	eq(db.showHealing, true, "showHealing")
-	eq(db.showMisses, true, "showMisses")
-	eq(db.fontSize, 16, "fontSize")
-	eq(db.critSize, 22, "critSize")
-	eq(db.font, "Friz Quadrata", "font")
-	eq(db.opacity, 100, "opacity")
-	eq(db.lines, 12, "lines")
-	eq(db.align, "RIGHT", "align")
-	eq(db.grow, "DOWN", "grow")
-	eq(db.point, "CENTER", "point")
-	eq(db.relPoint, "CENTER", "relPoint")
-	eq(db.x, -260, "x")
-	eq(db.y, 80, "y")
+	eq(db.enabled, nil, "enabled")
+	eq(db.colors, nil, "colors")
+	eq(db.damage.enabled, true, "damage.enabled")
+	eq(db.heal.enabled, true, "heal.enabled")
+	eq(db.damage.lockPosition, true, "damage.lock")
+	eq(db.heal.lockPosition, true, "heal.lock")
+	eq(db.damage.showMisses, true, "showMisses")
+	eq(db.damage.showCombat, true, "showCombat")
+	eq(db.heal.showMisses, nil, "heal.showMisses")
+	eq(db.damage.fontSize, 16, "fontSize")
+	eq(db.heal.fontSize, 16, "heal.fontSize")
+	eq(db.damage.critSize, 22, "critSize")
+	eq(db.damage.font, "Friz Quadrata", "font")
+	eq(db.damage.opacity, 100, "opacity")
+	eq(db.damage.fadeTime, 1, "fadeTime")
+	eq(db.heal.fadeTime, 1, "heal.fadeTime")
+	eq(db.damage.lines, 12, "lines")
+	eq(db.damage.align, "RIGHT", "align")
+	eq(db.damage.grow, "DOWN", "grow")
+	eq(db.damage.point, "CENTER", "point")
+	eq(db.damage.relPoint, "CENTER", "relPoint")
+	eq(db.damage.x, -260, "x")
+	eq(db.damage.y, 80, "damage.y")
+	eq(db.heal.y, -80, "heal.y")
 	eq(db.version, ns.DB_VERSION, "version")
-	eq(ns.DB_VERSION, 1, "DB_VERSION")
+	eq(ns.DB_VERSION, 3, "DB_VERSION")
 	eq(db.minimapIcon.minimapPos, 190, "minimapPos")
-	eq(db.colors.physical.r, 1, "physical.r")
-	eq(db.colors.physical.g, 1, "physical.g")
-	eq(db.colors.physical.b, 1, "physical.b")
-	eq(db.colors.crit.r, 1, "crit.r")
-	eq(db.colors.crit.g, 0.82, "crit.g")
-	eq(db.colors.crit.b, 0, "crit.b")
-	eq(db.colors.holy.b, 0.50, "holy.b")
-	eq(db.colors.fire.g, 0.50, "fire.g")
-	eq(db.colors.nature.r, 0.30, "nature.r")
-	eq(db.colors.frost.b, 1, "frost.b")
-	eq(db.colors.shadow.b, 0.90, "shadow.b")
-	eq(db.colors.arcane.r, 0.90, "arcane.r")
-	eq(db.colors.heal.g, 0.95, "heal.g")
-	eq(db.colors.miss.r, 0.75, "miss.r")
-	eq(db.colors.interrupt, nil, "interrupt")
+	eq(db.damage.colors.physical.r, 1, "physical.r")
+	eq(db.damage.colors.physical.g, 1, "physical.g")
+	eq(db.damage.colors.physical.b, 1, "physical.b")
+	eq(db.damage.colors.crit.r, 1, "crit.r")
+	eq(db.damage.colors.crit.g, 0.82, "crit.g")
+	eq(db.damage.colors.crit.b, 0, "crit.b")
+	eq(db.damage.colors.holy.b, 0.50, "holy.b")
+	eq(db.damage.colors.fire.g, 0.50, "fire.g")
+	eq(db.damage.colors.nature.r, 0.55, "nature.r")
+	eq(db.damage.colors.nature.g, 0.75, "nature.g")
+	eq(db.damage.colors.nature.b, 0.15, "nature.b")
+	eq(db.damage.colors.frost.b, 1, "frost.b")
+	eq(db.damage.colors.shadow.b, 0.90, "shadow.b")
+	eq(db.damage.colors.arcane.r, 0.90, "arcane.r")
+	eq(db.damage.colors.miss.r, 0.75, "miss.r")
+	eq(db.damage.colors.heal, nil, "damage.heal")
+	eq(db.heal.colors.heal.r, 0.20, "heal.r")
+	eq(db.heal.colors.heal.g, 0.90, "heal.g")
+	eq(db.heal.colors.heal.b, 0.55, "heal.b")
+	eq(db.heal.colors.crit.g, 0.82, "heal.crit.g")
+	eq(db.heal.colors.miss, nil, "heal.miss")
+	eq(db.heal.colors.nature, nil, "heal.nature")
+	eq(db.damage.colors.interrupt, nil, "interrupt")
 end)
 
 test("LoadDB reports an existing save", function()
@@ -78,13 +94,23 @@ test("LoadDB reports an existing save", function()
 end)
 
 test("LoadDB keeps an explicit disabled state", function()
-	local db = ns.LoadDB({ enabled = false, showMinimapButton = false, lockPosition = false, showDamage = false, showHealing = false, showMisses = false })
-	eq(db.enabled, false, "enabled")
+	local db = ns.LoadDB({
+		enabled = false,
+		showMinimapButton = false,
+		lockPosition = false,
+		showDamage = false,
+		showHealing = false,
+		showMisses = false,
+		showCombat = false,
+	})
 	eq(db.showMinimapButton, false, "showMinimapButton")
-	eq(db.lockPosition, false, "lockPosition")
-	eq(db.showDamage, false, "showDamage")
-	eq(db.showHealing, false, "showHealing")
-	eq(db.showMisses, false, "showMisses")
+	eq(db.damage.enabled, false, "damage.enabled")
+	eq(db.heal.enabled, false, "heal.enabled")
+	eq(db.damage.lockPosition, false, "damage.lock")
+	eq(db.heal.lockPosition, false, "heal.lock")
+	eq(db.damage.showMisses, false, "showMisses")
+	eq(db.damage.showCombat, false, "showCombat")
+	eq(db.enabled, nil, "enabled")
 end)
 
 test("LoadDB clamps font size, line count, opacity, align, and position", function()
@@ -92,6 +118,7 @@ test("LoadDB clamps font size, line count, opacity, align, and position", functi
 		fontSize = 80,
 		critSize = 3,
 		opacity = 0,
+		fadeTime = 40,
 		lines = 1,
 		x = 9000,
 		y = -9000,
@@ -101,39 +128,131 @@ test("LoadDB clamps font size, line count, opacity, align, and position", functi
 		relPoint = "",
 		font = "",
 	})
-	eq(db.fontSize, 32, "fontSize")
-	eq(db.critSize, 10, "critSize")
-	eq(db.opacity, 10, "opacity")
-	eq(db.lines, 4, "lines")
-	eq(db.x, 4000, "x")
-	eq(db.y, -4000, "y")
-	eq(db.align, "RIGHT", "align")
-	eq(db.grow, "DOWN", "grow")
-	eq(db.point, "CENTER", "point")
-	eq(db.relPoint, "CENTER", "relPoint")
-	eq(db.font, "Friz Quadrata", "font")
+	eq(db.damage.fontSize, 32, "fontSize")
+	eq(db.heal.fontSize, 32, "heal.fontSize")
+	eq(db.damage.critSize, 10, "critSize")
+	eq(db.damage.opacity, 10, "opacity")
+	eq(db.damage.fadeTime, 10, "fadeTime")
+	eq(db.heal.fadeTime, 10, "heal.fadeTime")
+	eq(db.damage.lines, 4, "lines")
+	eq(db.damage.x, 4000, "x")
+	eq(db.damage.y, -4000, "damage.y")
+	eq(db.heal.y, -4000, "heal.y")
+	eq(db.damage.align, "RIGHT", "align")
+	eq(db.damage.grow, "DOWN", "grow")
+	eq(db.damage.point, "CENTER", "point")
+	eq(db.damage.relPoint, "CENTER", "relPoint")
+	eq(db.damage.font, "Friz Quadrata", "font")
 end)
 
 test("LoadDB keeps a media font name and clamps a high opacity", function()
 	local db = ns.LoadDB({ font = "Ellesmere Display", opacity = 200, critSize = 80 })
-	eq(db.font, "Ellesmere Display", "font")
-	eq(db.opacity, 100, "opacity")
-	eq(db.critSize, 48, "critSize")
+	eq(db.damage.font, "Ellesmere Display", "font")
+	eq(db.heal.font, "Ellesmere Display", "heal.font")
+	eq(db.damage.opacity, 100, "opacity")
+	eq(db.damage.critSize, 48, "critSize")
+	eq(db.heal.critSize, 48, "heal.critSize")
 end)
 
 test("LoadDB fills a missing color table and clamps channels", function()
 	local db = ns.LoadDB({})
-	eq(db.colors.fire.r, 1, "fire.r")
-	eq(db.colors.heal.g, 0.95, "heal.g")
+	eq(db.damage.colors.fire.r, 1, "fire.r")
+	eq(db.heal.colors.heal.r, 0.20, "heal.r")
+	eq(db.heal.colors.heal.g, 0.90, "heal.g")
+	eq(db.heal.colors.heal.b, 0.55, "heal.b")
 
 	local patched = ns.LoadDB({
 		colors = { physical = { r = 2, g = -1, b = "x" } },
 	})
-	eq(patched.colors.physical.r, 1, "clamped.r")
-	eq(patched.colors.physical.g, 0, "clamped.g")
-	eq(patched.colors.physical.b, 1, "clamped.b")
-	eq(patched.colors.miss.r, 0.75, "miss.r")
-	eq(patched.colors.interrupt, nil, "interrupt")
+	eq(patched.damage.colors.physical.r, 1, "clamped.r")
+	eq(patched.damage.colors.physical.g, 0, "clamped.g")
+	eq(patched.damage.colors.physical.b, 1, "clamped.b")
+	eq(patched.damage.colors.miss.r, 0.75, "miss.r")
+	eq(patched.damage.colors.interrupt, nil, "interrupt")
+end)
+
+test("LoadDB retints the original nature and heal greens", function()
+	local db = ns.LoadDB({
+		version = 1,
+		colors = {
+			nature = { r = 0.30, g = 0.90, b = 0.30 },
+			heal = { r = 0.30, g = 0.95, b = 0.45 },
+			fire = { r = 0.2, g = 0.2, b = 0.2 },
+		},
+	})
+	eq(db.damage.colors.nature.r, 0.55, "nature.r")
+	eq(db.damage.colors.nature.g, 0.75, "nature.g")
+	eq(db.damage.colors.nature.b, 0.15, "nature.b")
+	eq(db.heal.colors.heal.r, 0.20, "heal.r")
+	eq(db.heal.colors.heal.g, 0.90, "heal.g")
+	eq(db.heal.colors.heal.b, 0.55, "heal.b")
+	eq(db.damage.colors.fire.r, 0.2, "fire.r")
+	eq(db.version, 3, "version")
+	eq(db.colors, nil, "colors")
+end)
+
+test("LoadDB keeps a chosen nature color", function()
+	local db = ns.LoadDB({
+		version = 1,
+		colors = { nature = { r = 1, g = 0, b = 0 } },
+	})
+	eq(db.damage.colors.nature.r, 1, "nature.r")
+	eq(db.damage.colors.nature.g, 0, "nature.g")
+	eq(db.damage.colors.nature.b, 0, "nature.b")
+end)
+
+test("LoadDB splits a version 2 save into two lists", function()
+	local db = ns.LoadDB({
+		version = 2,
+		showDamage = false,
+		showHealing = true,
+		fontSize = 18,
+		x = 10,
+		y = 40,
+		colors = {
+			physical = { r = 0.1, g = 0.2, b = 0.3 },
+			heal = { r = 0.4, g = 0.5, b = 0.6 },
+			crit = { r = 0.7, g = 0.8, b = 0.9 },
+		},
+	})
+	eq(db.damage.enabled, false, "damage.enabled")
+	eq(db.heal.enabled, true, "heal.enabled")
+	eq(db.damage.fontSize, 18, "fontSize")
+	eq(db.heal.fontSize, 18, "heal.fontSize")
+	eq(db.damage.x, 10, "x")
+	eq(db.heal.x, 10, "heal.x")
+	eq(db.damage.y, 40, "damage.y")
+	eq(db.heal.y, -120, "heal.y")
+	eq(db.damage.colors.physical.r, 0.1, "physical.r")
+	eq(db.heal.colors.heal.g, 0.5, "heal.g")
+	eq(db.damage.colors.crit.b, 0.9, "damage.crit")
+	eq(db.heal.colors.crit.b, 0.9, "heal.crit")
+	eq(db.damage.colors.crit ~= db.heal.colors.crit, true, "crit copies")
+	eq(db.colors, nil, "colors")
+	eq(db.fontSize, nil, "flat font")
+	eq(db.version, 3, "version")
+end)
+
+test("LoadDB leaves a version 3 save in place", function()
+	local db = ns.LoadDB({
+		version = 3,
+		damage = {
+			enabled = true,
+			y = 10,
+			colors = { physical = { r = 0.2, g = 0.2, b = 0.2 } },
+		},
+		heal = {
+			enabled = false,
+			y = 20,
+			colors = { heal = { r = 0.3, g = 0.3, b = 0.3 } },
+		},
+	})
+	eq(db.damage.y, 10, "damage.y")
+	eq(db.heal.y, 20, "heal.y")
+	eq(db.heal.enabled, false, "heal.enabled")
+	eq(db.damage.colors.physical.r, 0.2, "physical.r")
+	eq(db.heal.colors.heal.r, 0.3, "heal.r")
+	eq(db.version, 3, "version")
 end)
 
 test("LoadDB clamps the minimap position", function()
