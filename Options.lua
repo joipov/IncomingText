@@ -1,7 +1,7 @@
 local _, ns = ...
 
--- Settings panel. Subcategories keep a tall page usable. Rows are registered
--- from Blizzard's delegate so the settings search stays secure.
+-- Settings panel. One page holds every row. Rows are registered from
+-- Blizzard's delegate so the settings search stays secure.
 
 local Settings = Settings
 local ColorPickerFrame = ColorPickerFrame
@@ -82,12 +82,10 @@ function ns.InitOptions()
 	end
 	local category = Settings.RegisterVerticalLayoutCategory("Incoming Text")
 	ns.settingsCategory = category
-	local general = Settings.RegisterVerticalLayoutSubcategory(category, "General")
-	local colors = Settings.RegisterVerticalLayoutSubcategory(category, "Colors")
 
-	local function AddCheckbox(page, var, key, label, tooltip, onChanged, gated)
+	local function AddCheckbox(var, key, label, tooltip, onChanged, gated)
 		local setting = Settings.RegisterAddOnSetting(
-			page,
+			category,
 			var,
 			key,
 			ns.db,
@@ -102,13 +100,13 @@ function ns.InitOptions()
 		if gated then
 			Gate(initializer)
 		end
-		Settings.RegisterInitializer(page, initializer)
+		Settings.RegisterInitializer(category, initializer)
 		return setting
 	end
 
-	local function AddSlider(page, var, key, label, tooltip, lo, hi, step)
+	local function AddSlider(var, key, label, tooltip, lo, hi, step)
 		local setting = Settings.RegisterAddOnSetting(
-			page,
+			category,
 			var,
 			key,
 			ns.db,
@@ -126,12 +124,12 @@ function ns.InitOptions()
 		end)
 		local initializer = Settings.CreateSliderInitializer(setting, options, tooltip)
 		Gate(initializer)
-		Settings.RegisterInitializer(page, initializer)
+		Settings.RegisterInitializer(category, initializer)
 	end
 
-	local function AddDropdown(page, var, key, label, tooltip, choices)
+	local function AddDropdown(var, key, label, tooltip, choices)
 		local setting = Settings.RegisterAddOnSetting(
-			page,
+			category,
 			var,
 			key,
 			ns.db,
@@ -154,7 +152,7 @@ function ns.InitOptions()
 			return container:GetData()
 		end, tooltip)
 		Gate(initializer)
-		Settings.RegisterInitializer(page, initializer)
+		Settings.RegisterInitializer(category, initializer)
 	end
 
 	local function AddColor(key, label, tooltip)
@@ -189,50 +187,38 @@ function ns.InitOptions()
 		end
 		local initializer = CreateSettingsButtonInitializer(label, "Choose color", Open, tooltip, true)
 		Gate(initializer)
-		Settings.RegisterInitializer(colors, initializer)
-	end
-
-	local function OpenButton(name, page)
-		Settings.RegisterInitializer(
-			category,
-			CreateSettingsButtonInitializer(name, "Open", function()
-				Settings.OpenToCategory(page:GetID())
-			end, nil, false)
-		)
+		Settings.RegisterInitializer(category, initializer)
 	end
 
 	local function OnDisplay()
 		ns.ApplyWatching()
 	end
 
-	AddCheckbox(general, "IT_ENABLED", "enabled", "Enable Incoming Text", "Damage, healing, and misses that land on you.", function()
+	AddCheckbox("IT_ENABLED", "enabled", "Enable Incoming Text", "Damage, healing, and misses that land on you.", function()
 		ns.ApplyWatching()
 	end, false)
-	AddCheckbox(general, "IT_SHOW_MINIMAP", "showMinimapButton", "Minimap button", "Button on the minimap. Opens settings.", function()
+	AddCheckbox("IT_SHOW_MINIMAP", "showMinimapButton", "Minimap button", "Button on the minimap. Opens settings.", function()
 		ns.UpdateMinimapButton()
 	end, false)
-	ns.lockSetting = AddCheckbox(general, "IT_LOCK", "lockPosition", "Lock position", "Drag the corner square while this is off. Right-click the square to lock it.", function()
+	ns.lockSetting = AddCheckbox("IT_LOCK", "lockPosition", "Lock position", "Drag the corner square while this is off. Right-click the square to lock it.", function()
 		ns.ApplyLock()
 	end, true)
 
-	AddCheckbox(general, "IT_DAMAGE", "showDamage", "Show damage", "Damage you take.", OnDisplay, true)
-	AddCheckbox(general, "IT_HEALING", "showHealing", "Show healing", "Healing that lands on you.", OnDisplay, true)
-	AddCheckbox(general, "IT_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnDisplay, true)
-	AddDropdown(general, "IT_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
-	AddSlider(general, "IT_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
-	AddSlider(general, "IT_CRIT_SIZE", "critSize", "Crit size", "Size of a critical hit.", 10, 48, 1)
-	AddSlider(general, "IT_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
-	AddSlider(general, "IT_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
-	AddDropdown(general, "IT_ALIGN", "align", "Text align", "Which side the lines sit on.", ALIGNS)
-	AddDropdown(general, "IT_GROW", "grow", "Grow", "Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+	AddCheckbox("IT_DAMAGE", "showDamage", "Show damage", "Damage you take.", OnDisplay, true)
+	AddCheckbox("IT_HEALING", "showHealing", "Show healing", "Healing that lands on you.", OnDisplay, true)
+	AddCheckbox("IT_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnDisplay, true)
+	AddDropdown("IT_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
+	AddSlider("IT_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
+	AddSlider("IT_CRIT_SIZE", "critSize", "Crit size", "Size of a critical hit.", 10, 48, 1)
+	AddSlider("IT_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
+	AddSlider("IT_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
+	AddDropdown("IT_ALIGN", "align", "Text align", "Which side the lines sit on.", ALIGNS)
+	AddDropdown("IT_GROW", "grow", "Grow", "Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
 
 	for i = 1, #COLOR_ROWS do
 		local row = COLOR_ROWS[i]
 		AddColor(row[1], row[2], row[3])
 	end
-
-	OpenButton("General", general)
-	OpenButton("Colors", colors)
 
 	Settings.RegisterAddOnCategory(category)
 end

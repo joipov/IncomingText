@@ -4,13 +4,11 @@ local _, ns = ...
 -- per hit. OnUpdate runs only while a line is fading.
 
 local MAX_LINES = 24
-local WIDTH = 260
 -- Drag handle. Lines grow away from this corner.
-local SQUARE = 16
+local SQUARE = 48
 local FONT_FALLBACK = "Fonts\\FRIZQT__.TTF"
 local HOLD = 4
 local FADE = 1
-local PAD = 4
 
 local BUILTIN_FONTS = {
 	{ "Friz Quadrata", FONT_FALLBACK },
@@ -158,9 +156,10 @@ local function Paint()
 	local now = GetTime()
 	local align = ns.db.align == "RIGHT" and "RIGHT" or "LEFT"
 	local growUp = ns.db.grow == "UP"
-	local anchor = (growUp and "BOTTOM" or "TOP") .. align
+	local vertical = growUp and "BOTTOM" or "TOP"
 	local ySign = growUp and 1 or -1
-	local x = align == "RIGHT" and -SQUARE or SQUARE
+	local fromPoint = vertical .. align
+	local toPoint = vertical .. (align == "RIGHT" and "LEFT" or "RIGHT")
 	local y = 0
 	for i = 1, MAX_LINES do
 		local fs = list.fonts[i]
@@ -168,17 +167,17 @@ local function Paint()
 		if i <= count and slot.active then
 			local size = LineSize(slot.crit)
 			UseFont(fs, size)
-			fs:SetWidth(WIDTH - PAD * 2)
 			fs:SetJustifyH(align)
+			fs:SetJustifyV(vertical)
 			fs:SetText(slot.text)
 			local colorName = slot.crit and "crit" or slot.color
 			local r, g, b = SlotColor(colorName)
 			fs:SetTextColor(r, g, b)
 			fs:SetAlpha(AlphaFor(slot.born, now))
 			fs:ClearAllPoints()
-			fs:SetPoint(anchor, list.frame, anchor, x, y * ySign)
+			fs:SetPoint(fromPoint, list.frame, toPoint, 0, y * ySign)
 			fs:Show()
-			y = y + size + 2
+			y = y + size
 		else
 			fs:Hide()
 			if i > count then
@@ -330,6 +329,7 @@ local function Bind()
 	for i = 1, MAX_LINES do
 		local fs = frame:CreateFontString(nil, "OVERLAY")
 		UseFont(fs, db.fontSize)
+		fs:SetWordWrap(false)
 		fs:Hide()
 		list.fonts[i] = fs
 	end

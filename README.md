@@ -8,7 +8,7 @@ Target client: World of Warcraft **Forever** (`## Interface: 16001`).
 
 - Damage, healing, and misses are hits on you. **Show damage**, **Show healing**, and **Show misses** choose which lines appear.
 - **Font**, **Font size**, **Crit size**, and **Opacity** set the text. Lines sit on the left or the right, and new lines grow up or down. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag the corner square. Right-click the square to lock it.
-- **Colors** covers physical hits, critical hits, each spell school, healing, and misses. A critical hit uses the critical color.
+- Physical hits, critical hits, each spell school, healing, and misses each have a color on the same page. A critical hit uses the critical color.
 - Minimap launcher via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
 ## Commands
@@ -29,7 +29,7 @@ Loaded in TOC order; modules communicate only through the shared `ns` table.
 | `List.lua` | Line pool, fade, drag position |
 | `Events.lua` | Hits on you, login line |
 | `MinimapButton.lua` | LibDBIcon launcher or built-in button, addon compartment |
-| `Options.lua` | Settings pages, slash commands |
+| `Options.lua` | Settings page, slash commands |
 
 ## Development
 

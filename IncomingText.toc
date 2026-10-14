@@ -4,7 +4,7 @@
 ## Author: Joipov
 ## Version: 2.0.0
 ## Category: |cff8b5cf6Joipov|r Tools
-## IconTexture: Interface\Icons\INV_Sword_04
+## IconTexture: Interface\Icons\INV_Shield_06
 ## SavedVariables: IncomingTextDB
 ## OptionalDeps: LibStub, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0
 ## AddonCompartmentFunc: IncomingText_OnAddonCompartmentClick

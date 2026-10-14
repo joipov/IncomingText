@@ -6,7 +6,7 @@ local ADDON_NAME, ns = ...
 -- db.minimapIcon.
 
 local TITLE = "Incoming Text"
-local ICON = "Interface\\Icons\\INV_Sword_04"
+local ICON = "Interface\\Icons\\INV_Shield_06"
 local CLICK_TEXT = "Click for settings."
 local DRAG_TEXT = "Drag to move."
 
