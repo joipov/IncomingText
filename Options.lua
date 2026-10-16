@@ -1,7 +1,7 @@
 local _, ns = ...
 
--- Settings panel. The parent page sets both lists at once. Each list still has
--- its own page. Rows are registered from Blizzard's delegate so the settings
+-- Settings panel. The parent page sets all three lists at once. Each list still
+-- has its own page. Rows are registered from Blizzard's delegate so the settings
 -- search stays secure.
 
 local Settings = Settings
@@ -30,6 +30,15 @@ local DAMAGE_COLORS = {
 local HEAL_COLORS = {
 	{ "heal", "Healing", "Healing that lands on you and is not a critical hit." },
 	{ "crit", "Critical hits", "A critical heal uses this color instead of the heal color." },
+}
+local STATUS_COLORS = {
+	{ "combat", "Combat", "Entering and leaving combat." },
+	{ "dispel", "Dispels", "An aura removed from you." },
+}
+local ENABLE = {
+	damage = { "Enable damage", "Damage and misses that land on you." },
+	heal = { "Enable healing", "Healing that lands on you." },
+	status = { "Enable status", "Combat state, and auras dispelled from you." },
 }
 
 local function Clamp(value, lo, hi, fallback)
@@ -105,14 +114,14 @@ function ns.InitOptions()
 		"Button on the minimap. Opens settings."
 	))
 
-	-- Set while a main-page change is being copied onto both lists, so a list
-	-- checkbox does not write that change back and lock the other list too.
+	-- Set while a main-page change is being copied onto every list, so a list
+	-- checkbox does not write that change back and lock the other lists too.
 	local applying = false
 	local bothLock
 	local shared
 	local SyncBothLock
 
-	local function BuildPage(page, prefix, storage, listDefaults, listObj, colorRows, damageFlags)
+	local function BuildPage(page, prefix, storage, listDefaults, listObj, colorRows, kind)
 		local enableVar = prefix .. "_ENABLED"
 
 		local function AddCheckbox(var, key, label, tooltip, onChanged, gated)
@@ -229,7 +238,8 @@ function ns.InitOptions()
 		end
 
 		local controls = {}
-		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", "Enable " .. (damageFlags and "damage" or "healing"), damageFlags and "Damage, misses, and combat state." or "Healing that lands on you.", OnWatch, false)
+		local enable = ENABLE[kind]
+		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", enable[1], enable[2], OnWatch, false)
 		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or either edge while this is off. Right-click it to lock.", function()
 			listObj:ApplyLock()
 			if SyncBothLock then
@@ -237,9 +247,11 @@ function ns.InitOptions()
 			end
 		end, true)
 		listObj.lockSetting = controls.lockPosition
-		if damageFlags then
+		if kind == "damage" then
 			controls.showMisses = AddCheckbox(prefix .. "_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnWatch, true)
+		elseif kind == "status" then
 			controls.showCombat = AddCheckbox(prefix .. "_COMBAT", "showCombat", "Show combat", "Entering and leaving combat.", OnWatch, true)
+			controls.showDispels = AddCheckbox(prefix .. "_DISPELS", "showDispels", "Show dispels", "An aura removed from you, by name.", OnWatch, true)
 		end
 		controls.font = AddDropdown(prefix .. "_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
 		controls.fontSize = AddSlider(prefix .. "_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
@@ -259,14 +271,17 @@ function ns.InitOptions()
 
 	local damagePage = Settings.RegisterVerticalLayoutSubcategory(category, "Damage")
 	local healPage = Settings.RegisterVerticalLayoutSubcategory(category, "Healing")
-	local damageControls = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, true)
-	local healControls = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, false)
+	local statusPage = Settings.RegisterVerticalLayoutSubcategory(category, "Status")
+	local damageControls = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, "damage")
+	local healControls = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, "heal")
+	local statusControls = BuildPage(statusPage, "IT_STATUS", ns.db.status, ns.statusDefaults, ns.statusList, STATUS_COLORS, "status")
 
-	-- Not saved. A change here is written onto both lists, which keep their own copies.
+	-- Not saved. A change here is written onto every list, which keeps its own copy.
 	local damage = ns.db.damage
 	local heal = ns.db.heal
+	local status = ns.db.status
 	shared = {
-		lockPosition = damage.lockPosition and heal.lockPosition,
+		lockPosition = damage.lockPosition and heal.lockPosition and status.lockPosition,
 		font = damage.font,
 		fontSize = damage.fontSize,
 		critSize = damage.critSize,
@@ -284,6 +299,7 @@ function ns.InitOptions()
 		applying = true
 		damageControls[key]:SetValue(shared[key])
 		healControls[key]:SetValue(shared[key])
+		statusControls[key]:SetValue(shared[key])
 		applying = false
 	end
 
@@ -292,7 +308,7 @@ function ns.InitOptions()
 			return
 		end
 		applying = true
-		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition
+		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition and ns.db.status.lockPosition
 		bothLock:SetValue(shared.lockPosition)
 		applying = false
 	end
@@ -362,16 +378,16 @@ function ns.InitOptions()
 		return setting
 	end
 
-	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks both lists. Drag either area while this is off. Right-click an area to lock it.")
+	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all three lists. Drag any area while this is off. Right-click an area to lock it.")
 
-	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on both lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
-	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on both lists.", 10, 32, 1)
-	AddSharedSlider("IT_BOTH_CRIT_SIZE", "critSize", "Crit size", "Sets the critical line size on both lists.", 10, 48, 1)
-	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on both lists.", 10, 100, 1)
-	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on both lists, in seconds.", 0, 10, 1)
-	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for both lists.", 4, 24, 1)
-	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets which side the lines sit on for both lists.", ALIGNS)
-	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on both lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on all three lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
+	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on all three lists.", 10, 32, 1)
+	AddSharedSlider("IT_BOTH_CRIT_SIZE", "critSize", "Crit size", "Sets the critical line size on all three lists.", 10, 48, 1)
+	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on all three lists.", 10, 100, 1)
+	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on all three lists, in seconds.", 0, 10, 1)
+	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for all three lists.", 4, 24, 1)
+	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets which side the lines sit on for all three lists.", ALIGNS)
+	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on all three lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
 
 	Settings.RegisterAddOnCategory(category)
 end

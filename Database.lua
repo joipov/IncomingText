@@ -1,9 +1,9 @@
 local _, ns = ...
 
 -- Saved variables: defaults and validation. Plain Lua, so the tests can load
--- it without a client. Damage and healing are separate list tables.
+-- it without a client. Damage, healing, and status are separate list tables.
 
-local DB_VERSION = 3
+local DB_VERSION = 4
 local MINIMAP_POS = 190
 local HEAL_SHIFT = -160
 
@@ -41,6 +41,8 @@ local COLOR_DEFAULTS = {
 	arcane = { 0.90, 0.50, 0.90 },
 	heal = { 0.20, 0.90, 0.55 },
 	miss = { 0.75, 0.75, 0.75 },
+	combat = { 139 / 255, 92 / 255, 246 / 255 },
+	dispel = { 1, 0.75, 0.25 },
 }
 
 local DAMAGE_COLORS = {
@@ -58,6 +60,11 @@ local DAMAGE_COLORS = {
 local HEAL_COLORS = {
 	"heal",
 	"crit",
+}
+
+local STATUS_COLORS = {
+	"combat",
+	"dispel",
 }
 
 local OLD_KEYS = {
@@ -119,9 +126,12 @@ end
 
 local damageDefaults = ListScalars(80)
 damageDefaults.showMisses = true
-damageDefaults.showCombat = true
 
 local healDefaults = ListScalars(80 + HEAL_SHIFT)
+
+local statusDefaults = ListScalars(80 + HEAL_SHIFT * 2)
+statusDefaults.showCombat = true
+statusDefaults.showDispels = true
 
 -- Root scalars only. List tables are built in EnsureLists.
 local defaults = {
@@ -220,6 +230,7 @@ local function EnsureLists(db)
 	db.minimapIcon.minimapPos = ClampNumber(db.minimapIcon.minimapPos, 0, 360, MINIMAP_POS)
 	db.damage = EnsureList(db.damage, damageDefaults, DAMAGE_COLORS)
 	db.heal = EnsureList(db.heal, healDefaults, HEAL_COLORS)
+	db.status = EnsureList(db.status, statusDefaults, STATUS_COLORS)
 end
 
 local function CopyDefaults(db)
@@ -295,6 +306,19 @@ local function Snapshot(db, yOffset)
 	return list
 end
 
+-- Combat state leaves the damage list. A chosen Show combat value stays.
+local function MoveCombat(db)
+	local damage = db.damage
+	if type(damage) ~= "table" or type(damage.showCombat) ~= "boolean" then
+		return
+	end
+	if type(db.status) ~= "table" then
+		db.status = {}
+	end
+	db.status.showCombat = damage.showCombat
+	damage.showCombat = nil
+end
+
 -- A flat save becomes two lists. Damage keeps the point. Healing sits below it.
 local function SplitLists(db)
 	local master = On(db.enabled)
@@ -329,6 +353,9 @@ local function MigrateDB(db)
 	if version < 3 then
 		SplitLists(db)
 	end
+	if version < 4 then
+		MoveCombat(db)
+	end
 	db.version = DB_VERSION
 end
 
@@ -344,4 +371,5 @@ end
 ns.defaults = defaults
 ns.damageDefaults = damageDefaults
 ns.healDefaults = healDefaults
+ns.statusDefaults = statusDefaults
 ns.DB_VERSION = DB_VERSION

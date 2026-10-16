@@ -1,9 +1,11 @@
 local _, ns = ...
 
--- Two scrolling lists. Lines are a fixed pool: a fight must not create a frame
+-- Three scrolling lists. Lines are a fixed pool: a fight must not create a frame
 -- per hit. OnUpdate runs only while a line is fading.
 
 local MAX_LINES = 24
+-- Used when a line's width cannot be read, so the drag frame still has a size.
+local SECRET_WIDTH = 120
 -- The two fixed edges and the area they enclose. Lines grow away from that corner.
 local THICK = 3
 local MIN_ARM = 48
@@ -34,6 +36,7 @@ end
 
 local function CopySlot(dst, src)
 	dst.text = src.text
+	dst.format = src.format
 	dst.color = src.color
 	dst.born = src.born
 	dst.crit = src.crit
@@ -102,6 +105,7 @@ local function CreateList(key)
 	for i = 1, MAX_LINES do
 		list.slots[i] = {
 			text = "",
+			format = nil,
 			color = "physical",
 			born = 0,
 			crit = false,
@@ -125,10 +129,6 @@ local function CreateList(key)
 	end
 
 	local function SlotColor(name)
-		if name == "combat" then
-			-- Joipov violet, |cff8b5cf6.
-			return 139 / 255, 92 / 255, 246 / 255
-		end
 		local cfg = Cfg()
 		local colors = cfg and cfg.colors
 		local row = colors and colors[name]
@@ -235,7 +235,11 @@ local function CreateList(key)
 				UseFont(fs, size)
 				fs:SetJustifyH(align)
 				fs:SetJustifyV(vertical)
-				fs:SetText(slot.text)
+				if type(slot.format) == "string" then
+					fs:SetFormattedText(slot.format, slot.text)
+				else
+					fs:SetText(slot.text)
+				end
 				local colorName = slot.crit and "crit" or slot.color
 				local r, g, b = SlotColor(colorName)
 				fs:SetTextColor(r, g, b)
@@ -243,9 +247,20 @@ local function CreateList(key)
 				fs:ClearAllPoints()
 				fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign)
 				fs:Show()
-				local textWidth = fs:GetStringWidth()
-				if type(textWidth) == "number" and textWidth > width then
-					width = textWidth
+				-- A secret string has no readable width. Skip the measure.
+				if SecretBlocked(slot.text) then
+					if SECRET_WIDTH > width then
+						width = SECRET_WIDTH
+					end
+				else
+					local textWidth = fs:GetStringWidth()
+					if SecretBlocked(textWidth) then
+						if SECRET_WIDTH > width then
+							width = SECRET_WIDTH
+						end
+					elseif type(textWidth) == "number" and textWidth > width then
+						width = textWidth
+					end
 				end
 				y = y + size
 			else
@@ -525,8 +540,19 @@ local function CreateList(key)
 		list:ApplyLock()
 	end
 
-	function list:AddLine(text, color, crit)
-		if not Cfg() or type(text) ~= "string" or text == "" then
+	function list:AddLine(text, color, crit, format)
+		if not Cfg() then
+			return
+		end
+		-- A secret name cannot be compared. An empty plain string is dropped.
+		local secret = SecretBlocked(text)
+		if not secret and (type(text) ~= "string" or text == "") then
+			return
+		end
+		if secret and type(text) ~= "string" then
+			return
+		end
+		if format ~= nil and type(format) ~= "string" then
 			return
 		end
 		list:Init()
@@ -541,6 +567,7 @@ local function CreateList(key)
 		end
 		local top = list.slots[1]
 		top.text = text
+		top.format = format
 		top.color = color or "physical"
 		top.born = GetTime()
 		top.crit = crit and true or false
@@ -554,19 +581,22 @@ end
 
 ns.damageList = CreateList("damage")
 ns.healList = CreateList("heal")
+ns.statusList = CreateList("status")
 
-function ns.AddLine(list, text, color, crit)
-	list:AddLine(text, color, crit)
+function ns.AddLine(list, text, color, crit, format)
+	list:AddLine(text, color, crit, format)
 end
 
 function ns.InitLists()
 	ns.damageList:Init()
 	ns.healList:Init()
+	ns.statusList:Init()
 end
 
 function ns.ShowTest()
-	ns.AddLine(ns.damageList, "-Combat", "combat", false)
-	ns.AddLine(ns.damageList, "+Combat", "combat", false)
+	ns.AddLine(ns.statusList, "-Combat", "combat", false)
+	ns.AddLine(ns.statusList, "+Combat", "combat", false)
+	ns.AddLine(ns.statusList, "Polymorph dispelled", "dispel", false)
 	ns.AddLine(ns.damageList, "Dodge", "miss", false)
 	ns.AddLine(ns.damageList, "-860", "nature", false)
 	ns.AddLine(ns.damageList, "-1,284", "physical", false)

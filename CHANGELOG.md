@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.0
+
+Combat state and dispels on you have their own list.
+
+### Added
+
+- **Status** is a third list, below healing. It has its own place, look, and colors.
+- **Show dispels** prints the name of an aura removed from you, such as `Polymorph dispelled`.
+- **Show combat** on the status page prints `+Combat` when you enter combat and `-Combat` when you leave.
+
+### Changed
+
+- **Show combat** moved from the damage page to the status page. A saved choice comes with it.
+
 ## 2.0.0
 
 A scrolling list of damage, healing, and misses that land on you.

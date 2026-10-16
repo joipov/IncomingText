@@ -2,7 +2,7 @@
 ## Title: Incoming Text
 ## Notes: A scrolling list of damage and healing that land on you.
 ## Author: Joipov
-## Version: 2.0.0
+## Version: 2.1.0
 ## Category: |cff8b5cf6Joipov|r Tools
 ## IconTexture: Interface\Icons\INV_Shield_06
 ## SavedVariables: IncomingTextDB
