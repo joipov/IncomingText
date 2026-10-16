@@ -105,7 +105,8 @@ function ns.InitOptions()
 		"Minimap button",
 		ns.defaults.showMinimapButton
 	)
-	minimap:SetValueChangedCallback(function()
+	-- Beside the control's own listener, which is what redraws the row.
+	Settings.SetOnValueChangedCallback("IT_SHOW_MINIMAP", function()
 		ns.UpdateMinimapButton()
 	end)
 	Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(
@@ -123,8 +124,10 @@ function ns.InitOptions()
 
 	local function BuildPage(page, prefix, storage, listDefaults, listObj, colorRows, kind)
 		local enableVar = prefix .. "_ENABLED"
+		local vars = {}
 
 		local function AddCheckbox(var, key, label, tooltip, onChanged, gated)
+			vars[key] = var
 			local setting = Settings.RegisterAddOnSetting(
 				page,
 				var,
@@ -135,7 +138,7 @@ function ns.InitOptions()
 				listDefaults[key]
 			)
 			if onChanged then
-				setting:SetValueChangedCallback(onChanged)
+				Settings.SetOnValueChangedCallback(var, onChanged)
 			end
 			local initializer = Settings.CreateCheckboxInitializer(setting, nil, tooltip)
 			if gated then
@@ -146,6 +149,7 @@ function ns.InitOptions()
 		end
 
 		local function AddSlider(var, key, label, tooltip, lo, hi, step)
+			vars[key] = var
 			local setting = Settings.RegisterAddOnSetting(
 				page,
 				var,
@@ -155,7 +159,7 @@ function ns.InitOptions()
 				label,
 				listDefaults[key]
 			)
-			setting:SetValueChangedCallback(function()
+			Settings.SetOnValueChangedCallback(var, function()
 				storage[key] = math.floor(Clamp(storage[key], lo, hi, listDefaults[key]) + 0.5)
 				listObj:Refresh()
 			end)
@@ -170,6 +174,7 @@ function ns.InitOptions()
 		end
 
 		local function AddDropdown(var, key, label, tooltip, choices)
+			vars[key] = var
 			local setting = Settings.RegisterAddOnSetting(
 				page,
 				var,
@@ -179,7 +184,7 @@ function ns.InitOptions()
 				label,
 				listDefaults[key]
 			)
-			setting:SetValueChangedCallback(function()
+			Settings.SetOnValueChangedCallback(var, function()
 				listObj:Refresh()
 			end)
 			local initializer = Settings.CreateDropdownInitializer(setting, function()
@@ -240,7 +245,7 @@ function ns.InitOptions()
 		local controls = {}
 		local enable = ENABLE[kind]
 		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", enable[1], enable[2], OnWatch, false)
-		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or either edge while this is off. Sample lines show where the text will sit. Right-click it to lock.", function()
+		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or an edge while this is off. Sample lines show where the text will sit. Right-click it to lock.", function()
 			listObj:ApplyLock()
 			if SyncBothLock then
 				SyncBothLock()
@@ -268,17 +273,17 @@ function ns.InitOptions()
 			local row = colorRows[i]
 			AddColor(row[1], row[2], row[3])
 		end
-		return controls
+		return controls, vars
 	end
 
 	local damagePage = Settings.RegisterVerticalLayoutSubcategory(category, "Damage")
 	local healPage = Settings.RegisterVerticalLayoutSubcategory(category, "Healing")
 	local statusPage = Settings.RegisterVerticalLayoutSubcategory(category, "Status")
-	local damageControls = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, "damage")
-	local healControls = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, "heal")
-	local statusControls = BuildPage(statusPage, "IT_STATUS", ns.db.status, ns.statusDefaults, ns.statusList, STATUS_COLORS, "status")
+	local damageControls, damageVars = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, "damage")
+	local healControls, healVars = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, "heal")
+	local statusControls, statusVars = BuildPage(statusPage, "IT_STATUS", ns.db.status, ns.statusDefaults, ns.statusList, STATUS_COLORS, "status")
 
-	-- Not saved. A change here is written onto every list, which keeps its own copy.
+	-- Not saved. A change here sets every list's own copy.
 	local damage = ns.db.damage
 	local heal = ns.db.heal
 	local status = ns.db.status
@@ -295,14 +300,20 @@ function ns.InitOptions()
 		animate = damage.animate,
 	}
 
+	-- SetValue writes the saved copy. NotifyUpdate moves a control that is already on screen.
+	local function Assign(controls, vars, key)
+		controls[key]:SetValue(shared[key])
+		Settings.NotifyUpdate(vars[key])
+	end
+
 	local function Push(key)
 		if applying then
 			return
 		end
 		applying = true
-		damageControls[key]:SetValue(shared[key])
-		healControls[key]:SetValue(shared[key])
-		statusControls[key]:SetValue(shared[key])
+		Assign(damageControls, damageVars, key)
+		Assign(healControls, healVars, key)
+		Assign(statusControls, statusVars, key)
 		applying = false
 	end
 
@@ -313,6 +324,7 @@ function ns.InitOptions()
 		applying = true
 		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition and ns.db.status.lockPosition
 		bothLock:SetValue(shared.lockPosition)
+		Settings.NotifyUpdate("IT_BOTH_LOCK")
 		applying = false
 	end
 
@@ -326,7 +338,7 @@ function ns.InitOptions()
 			label,
 			ns.damageDefaults[key]
 		)
-		setting:SetValueChangedCallback(function()
+		Settings.SetOnValueChangedCallback(var, function()
 			shared[key] = math.floor(Clamp(shared[key], lo, hi, ns.damageDefaults[key]) + 0.5)
 			Push(key)
 		end)
@@ -347,7 +359,7 @@ function ns.InitOptions()
 			label,
 			ns.damageDefaults[key]
 		)
-		setting:SetValueChangedCallback(function()
+		Settings.SetOnValueChangedCallback(var, function()
 			Push(key)
 		end)
 		local initializer = Settings.CreateDropdownInitializer(setting, function()
@@ -374,7 +386,7 @@ function ns.InitOptions()
 			label,
 			ns.damageDefaults[key]
 		)
-		setting:SetValueChangedCallback(function()
+		Settings.SetOnValueChangedCallback(var, function()
 			Push(key)
 		end)
 		Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(setting, nil, tooltip))

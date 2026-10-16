@@ -318,7 +318,8 @@ local function MoveCombat(db)
 	damage.showCombat = nil
 end
 
--- A flat save becomes two lists. Damage keeps the point. Healing sits below it.
+-- A flat save becomes the damage and healing lists. Damage keeps the point.
+-- Healing sits below it. Status is added by the later steps.
 local function SplitLists(db)
 	local master = On(db.enabled)
 	local damage = Snapshot(db, 0)

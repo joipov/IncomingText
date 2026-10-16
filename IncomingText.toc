@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Incoming Text
-## Notes: A scrolling list of damage and healing that land on you.
+## Notes: Scrolling lists for damage, healing, and combat state.
 ## Author: Joipov
-## Version: 2.2.0
+## Version: 2.2.1
 ## Category: |cff8b5cf6Joipov|r Tools
 ## IconTexture: Interface\Icons\INV_Shield_06
 ## SavedVariables: IncomingTextDB

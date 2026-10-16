@@ -8,10 +8,6 @@ issecretvalue = issecretvalue
 ---@type fun(value: any): boolean
 canaccessvalue = canaccessvalue
 
----@param name string
----@return table
-function CreateSettingsListSectionHeaderInitializer(name) end
-
 ---@param label string
 ---@param buttonText string
 ---@param onClick function

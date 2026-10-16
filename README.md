@@ -7,7 +7,7 @@ Target client: World of Warcraft **Forever** (`## Interface: 16001`).
 ## Features
 
 - Damage and misses go to the damage list. Healing goes to the healing list. Combat state goes to the status list. Each list has its own **Enable**. The damage list has **Show misses**. The status list has **Show combat**, which prints `+Combat` when you enter combat and `-Combat` when you leave.
-- Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, **Grow**, and **Animate entry**. **Text align** is left, center, or right. **Animate entry** fades a new line in and slides it into place. The same rows on the main page write those values onto all three lists. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or either edge. Sample lines show where the text will sit until a real line is on screen. Right-click it to lock.
+- Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, **Grow**, and **Animate entry**. **Text align** is left, center, or right. **Animate entry** fades a new line in and slides it into place. The same rows on the main page set those values on all three lists, and the rows there move to the new value. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or an edge. Sample lines show where the text will sit until a real line is on screen. Right-click it to lock.
 - The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color. The **Status** page colors combat state.
 - One minimap launcher, via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
@@ -61,6 +61,6 @@ Local zip, with the addon folder at the root, written to `.release/`:
 powershell -File package.ps1
 ```
 
-Releases: push an annotated tag (`git tag -a 2.2.0 -m "2.2.0"`). The
+Releases: push an annotated tag (`git tag -a 2.2.1 -m "2.2.1"`). The
 `Package and release` workflow runs BigWigsMods/packager, which reads the game
 version from the TOC and the manual changelog from `CHANGELOG.md`.

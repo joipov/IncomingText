@@ -1,7 +1,7 @@
 local _, ns = ...
 
 -- Three scrolling lists. Lines are a fixed pool: a fight must not create a frame
--- per hit. OnUpdate runs only while a line is fading.
+-- per hit. OnUpdate runs only while a line is entering or fading.
 
 local MAX_LINES = 24
 -- Used when a line's width cannot be read, so the drag frame still has a size.

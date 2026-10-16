@@ -233,7 +233,7 @@ test("LoadDB keeps a chosen nature color", function()
 	eq(db.damage.colors.nature.b, 0, "nature.b")
 end)
 
-test("LoadDB splits a version 2 save into two lists", function()
+test("LoadDB splits a version 2 save into damage and healing", function()
 	local db = ns.LoadDB({
 		version = 2,
 		showDamage = false,

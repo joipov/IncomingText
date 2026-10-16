@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.1
+
+A change on the main page sets the same row on all three lists.
+
+### Changed
+
+- **Lock position**, font, size, opacity, fade, lines, align, grow, and animate entry on the main page set those rows on Damage, Healing, and Status. The rows there move to the new value.
+
 ## 2.2.0
 
 Lines can sit in the center, and a new line can fade and slide into place.
