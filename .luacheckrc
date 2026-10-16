@@ -31,7 +31,6 @@ read_globals = {
 	"canaccessvalue",
 
 	"C_AddOns",
-	"C_CombatText",
 	"C_Timer",
 	"LibStub",
 	"bit",

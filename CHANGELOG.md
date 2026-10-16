@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.0
+
+Lines can sit in the center, and a new line can fade and slide into place.
+
+### Added
+
+- **Text align** includes **Center**. Lines sit on the middle of the anchor. While unlocked, a centered list shows only the top edge when it grows down, and only the bottom edge when it grows up.
+- **Animate entry** fades a new line in and slides it into place. It is on by default. Turn it off for a line to appear at once.
+- An unlocked list shows sample lines, so the drag block matches the text. They hide while a real line is on screen, and when the list is locked.
+
+### Removed
+
+- **Show dispels** is gone. The status list is combat only: `+Combat` and `-Combat`.
+
 ## 2.1.0
 
 Combat state and dispels on you have their own list.

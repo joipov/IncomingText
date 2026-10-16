@@ -21,6 +21,7 @@ local POINTS = {
 
 local ALIGNS = {
 	LEFT = true,
+	CENTER = true,
 	RIGHT = true,
 }
 
@@ -42,7 +43,6 @@ local COLOR_DEFAULTS = {
 	heal = { 0.20, 0.90, 0.55 },
 	miss = { 0.75, 0.75, 0.75 },
 	combat = { 139 / 255, 92 / 255, 246 / 255 },
-	dispel = { 1, 0.75, 0.25 },
 }
 
 local DAMAGE_COLORS = {
@@ -64,7 +64,6 @@ local HEAL_COLORS = {
 
 local STATUS_COLORS = {
 	"combat",
-	"dispel",
 }
 
 local OLD_KEYS = {
@@ -116,6 +115,7 @@ local function ListScalars(y)
 		fadeTime = 1,
 		lines = 12,
 		align = "RIGHT",
+		animate = true,
 		grow = "DOWN",
 		point = "CENTER",
 		relPoint = "CENTER",
@@ -131,7 +131,6 @@ local healDefaults = ListScalars(80 + HEAL_SHIFT)
 
 local statusDefaults = ListScalars(80 + HEAL_SHIFT * 2)
 statusDefaults.showCombat = true
-statusDefaults.showDispels = true
 
 -- Root scalars only. List tables are built in EnsureLists.
 local defaults = {

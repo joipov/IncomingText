@@ -171,22 +171,6 @@ local function AddCombat(entering)
 	end
 end
 
-local function AddDispel(name)
-	local cfg = StatusCfg()
-	if not cfg or not cfg.enabled or not cfg.showDispels then
-		return
-	end
-	if not SecretBlocked(name) then
-		name = PlainString(name)
-		if not name then
-			return
-		end
-	elseif type(name) ~= "string" then
-		return
-	end
-	ns.AddLine(ns.statusList, name, "dispel", false, "%s dispelled")
-end
-
 local function HandleCombat(unit, action, flagText, amount, school)
 	if not ns.db then
 		return
@@ -215,7 +199,6 @@ function ns.ApplyWatching()
 	eventFrame:UnregisterEvent("UNIT_COMBAT")
 	eventFrame:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
-	eventFrame:UnregisterEvent("COMBAT_TEXT_UPDATE")
 	local damage = DamageCfg()
 	local heal = HealCfg()
 	local status = StatusCfg()
@@ -235,10 +218,6 @@ function ns.ApplyWatching()
 	if status and status.enabled and status.showCombat then
 		eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 		eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-	end
-	if status and status.enabled and status.showDispels then
-		C_CombatText.SetActiveUnit("player")
-		eventFrame:RegisterEvent("COMBAT_TEXT_UPDATE")
 	end
 end
 
@@ -270,14 +249,6 @@ end
 
 function handlers.PLAYER_REGEN_ENABLED()
 	AddCombat(false)
-end
-
-function handlers.COMBAT_TEXT_UPDATE(kind)
-	if PlainString(kind) ~= "SPELL_DISPELLED" then
-		return
-	end
-	local name = C_CombatText.GetCurrentEventInfo()
-	AddDispel(name)
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)

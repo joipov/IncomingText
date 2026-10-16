@@ -10,6 +10,7 @@ local CreateSettingsButtonInitializer = CreateSettingsButtonInitializer
 
 local ALIGNS = {
 	{ "LEFT", "Left" },
+	{ "CENTER", "Center" },
 	{ "RIGHT", "Right" },
 }
 local GROWS = {
@@ -33,12 +34,11 @@ local HEAL_COLORS = {
 }
 local STATUS_COLORS = {
 	{ "combat", "Combat", "Entering and leaving combat." },
-	{ "dispel", "Dispels", "An aura removed from you." },
 }
 local ENABLE = {
 	damage = { "Enable damage", "Damage and misses that land on you." },
 	heal = { "Enable healing", "Healing that lands on you." },
-	status = { "Enable status", "Combat state, and auras dispelled from you." },
+	status = { "Enable status", "Entering and leaving combat." },
 }
 
 local function Clamp(value, lo, hi, fallback)
@@ -240,7 +240,7 @@ function ns.InitOptions()
 		local controls = {}
 		local enable = ENABLE[kind]
 		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", enable[1], enable[2], OnWatch, false)
-		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or either edge while this is off. Right-click it to lock.", function()
+		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or either edge while this is off. Sample lines show where the text will sit. Right-click it to lock.", function()
 			listObj:ApplyLock()
 			if SyncBothLock then
 				SyncBothLock()
@@ -251,7 +251,6 @@ function ns.InitOptions()
 			controls.showMisses = AddCheckbox(prefix .. "_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnWatch, true)
 		elseif kind == "status" then
 			controls.showCombat = AddCheckbox(prefix .. "_COMBAT", "showCombat", "Show combat", "Entering and leaving combat.", OnWatch, true)
-			controls.showDispels = AddCheckbox(prefix .. "_DISPELS", "showDispels", "Show dispels", "An aura removed from you, by name.", OnWatch, true)
 		end
 		controls.font = AddDropdown(prefix .. "_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
 		controls.fontSize = AddSlider(prefix .. "_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
@@ -259,8 +258,11 @@ function ns.InitOptions()
 		controls.opacity = AddSlider(prefix .. "_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
 		controls.fadeTime = AddSlider(prefix .. "_FADE", "fadeTime", "Fade time", "How long a line takes to fade out, in seconds.", 0, 10, 1)
 		controls.lines = AddSlider(prefix .. "_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
-		controls.align = AddDropdown(prefix .. "_ALIGN", "align", "Text align", "Which side the lines sit on.", ALIGNS)
+		controls.align = AddDropdown(prefix .. "_ALIGN", "align", "Text align", "Left, center, or right.", ALIGNS)
 		controls.grow = AddDropdown(prefix .. "_GROW", "grow", "Grow", "Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+		controls.animate = AddCheckbox(prefix .. "_ANIMATE", "animate", "Animate entry", "A new line fades and slides into place.", function()
+			listObj:Refresh()
+		end, true)
 
 		for i = 1, #colorRows do
 			local row = colorRows[i]
@@ -290,6 +292,7 @@ function ns.InitOptions()
 		lines = damage.lines,
 		align = damage.align,
 		grow = damage.grow,
+		animate = damage.animate,
 	}
 
 	local function Push(key)
@@ -378,7 +381,7 @@ function ns.InitOptions()
 		return setting
 	end
 
-	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all three lists. Drag any area while this is off. Right-click an area to lock it.")
+	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all three lists. Drag any area while this is off. Sample lines show where the text will sit. Right-click an area to lock it.")
 
 	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on all three lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
 	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on all three lists.", 10, 32, 1)
@@ -386,8 +389,9 @@ function ns.InitOptions()
 	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on all three lists.", 10, 100, 1)
 	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on all three lists, in seconds.", 0, 10, 1)
 	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for all three lists.", 4, 24, 1)
-	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets which side the lines sit on for all three lists.", ALIGNS)
+	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets left, center, or right on all three lists.", ALIGNS)
 	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on all three lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+	AddSharedCheckbox("IT_BOTH_ANIMATE", "animate", "Animate entry", "A new line fades and slides into place on all three lists.")
 
 	Settings.RegisterAddOnCategory(category)
 end

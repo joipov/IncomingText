@@ -1,14 +1,14 @@
 # Incoming Text
 
-A scrolling damage list, a scrolling healing list, and a scrolling status list. Each has its own place, size, face, and direction. Dodge, parry, and the other misses stay on the damage list. `+Combat`, `-Combat`, and dispels stay on the status list.
+A scrolling damage list, a scrolling healing list, and a scrolling status list. Each has its own place, size, face, and direction. Dodge, parry, and the other misses stay on the damage list. `+Combat` and `-Combat` stay on the status list.
 
 Target client: World of Warcraft **Forever** (`## Interface: 16001`).
 
 ## Features
 
-- Damage and misses go to the damage list. Healing goes to the healing list. Combat state and dispels go to the status list. Each list has its own **Enable**. The damage list has **Show misses**. The status list has **Show combat** and **Show dispels**. **Show combat** prints `+Combat` when you enter combat and `-Combat` when you leave. **Show dispels** prints the name of an aura removed from you, such as `Polymorph dispelled`.
-- Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, and **Grow**. The same rows on the main page write those values onto all three lists. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or either edge. Right-click it to lock.
-- The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color. The **Status** page colors combat state and dispels.
+- Damage and misses go to the damage list. Healing goes to the healing list. Combat state goes to the status list. Each list has its own **Enable**. The damage list has **Show misses**. The status list has **Show combat**, which prints `+Combat` when you enter combat and `-Combat` when you leave.
+- Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, **Grow**, and **Animate entry**. **Text align** is left, center, or right. **Animate entry** fades a new line in and slides it into place. The same rows on the main page write those values onto all three lists. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or either edge. Sample lines show where the text will sit until a real line is on screen. Right-click it to lock.
+- The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color. The **Status** page colors combat state.
 - One minimap launcher, via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
 ## Commands
@@ -27,7 +27,7 @@ Loaded in TOC order; modules communicate only through the shared `ns` table.
 | --- | --- |
 | `Database.lua` | SavedVariables defaults and validation |
 | `List.lua` | Three line pools, fade, drag position |
-| `Events.lua` | Hits on you, combat state, dispels, login line |
+| `Events.lua` | Hits on you, combat state, login line |
 | `MinimapButton.lua` | LibDBIcon launcher or built-in button, addon compartment |
 | `Options.lua` | Damage, Healing, and Status settings pages, slash commands |
 
@@ -61,6 +61,6 @@ Local zip, with the addon folder at the root, written to `.release/`:
 powershell -File package.ps1
 ```
 
-Releases: push an annotated tag (`git tag -a 2.1.0 -m "2.1.0"`). The
+Releases: push an annotated tag (`git tag -a 2.2.0 -m "2.2.0"`). The
 `Package and release` workflow runs BigWigsMods/packager, which reads the game
 version from the TOC and the manual changelog from `CHANGELOG.md`.

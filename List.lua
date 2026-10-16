@@ -13,6 +13,26 @@ local HIT = 6
 local FONT_FALLBACK = "Fonts\\FRIZQT__.TTF"
 local HOLD = 4
 
+-- Shown only while that list is unlocked and empty. Not scrolling slots.
+local PREVIEWS = {
+	damage = {
+		{ "-1,902", "fire", true },
+		{ "-1,284", "physical", false },
+		{ "Dodge", "miss", false },
+	},
+	heal = {
+		{ "+1,100", "heal", true },
+		{ "+640", "heal", false },
+	},
+	status = {
+		{ "+Combat", "combat", false },
+		{ "-Combat", "combat", false },
+	},
+}
+-- A new line fades and slides into place. Ease-out, then it sits still.
+local ENTER = 0.15
+local ENTER_SLIDE = 8
+
 local BUILTIN_FONTS = {
 	{ "Friz Quadrata", FONT_FALLBACK },
 	{ "Arial Narrow", "Fonts\\ARIALN.TTF" },
@@ -36,7 +56,6 @@ end
 
 local function CopySlot(dst, src)
 	dst.text = src.text
-	dst.format = src.format
 	dst.color = src.color
 	dst.born = src.born
 	dst.crit = src.crit
@@ -100,12 +119,13 @@ local function CreateList(key)
 		fonts = {},
 		slots = {},
 		watchingFade = false,
+		nudging = false,
+		preview = {},
 	}
 
 	for i = 1, MAX_LINES do
 		list.slots[i] = {
 			text = "",
-			format = nil,
 			color = "physical",
 			born = 0,
 			crit = false,
@@ -164,9 +184,24 @@ local function CreateList(key)
 		return fade
 	end
 
+	local function EaseRemain(age)
+		if age <= 0 then
+			return 1
+		end
+		if age >= ENTER then
+			return 0
+		end
+		local remain = 1 - age / ENTER
+		return remain * remain
+	end
+
 	local function AlphaFor(born, now)
 		local peak = PeakAlpha()
 		local age = now - born
+		local cfg = Cfg()
+		if cfg and cfg.animate and age < ENTER then
+			return peak * (1 - EaseRemain(age))
+		end
 		if age <= HOLD then
 			return peak
 		end
@@ -181,12 +216,42 @@ local function CreateList(key)
 		return alpha
 	end
 
+	local function Slide(age, growUp)
+		local dist = ENTER_SLIDE * EaseRemain(age)
+		if dist == 0 then
+			return 0
+		end
+		if growUp then
+			return -dist
+		end
+		return dist
+	end
+
 	local function Corner()
 		local cfg = Cfg()
-		local align = cfg and cfg.align == "RIGHT" and "RIGHT" or "LEFT"
+		local align = "LEFT"
+		if cfg and cfg.align == "RIGHT" then
+			align = "RIGHT"
+		elseif cfg and cfg.align == "CENTER" then
+			align = "CENTER"
+		end
 		local growUp = cfg and cfg.grow == "UP"
 		local vertical = growUp and "BOTTOM" or "TOP"
-		return align, growUp, vertical, vertical .. align
+		local fromPoint = vertical
+		if align ~= "CENTER" then
+			fromPoint = vertical .. align
+		end
+		return align, growUp, vertical, fromPoint
+	end
+
+	local function InsetX(align)
+		if align == "RIGHT" then
+			return -THICK
+		end
+		if align == "CENTER" then
+			return 0
+		end
+		return THICK
 	end
 
 	local function Arm(length)
@@ -197,7 +262,7 @@ local function CreateList(key)
 	end
 
 	local function PlaceBorders(width, height)
-		local _, _, _, corner = Corner()
+		local align, _, _, corner = Corner()
 		local armW = Arm(width)
 		local armH = Arm(height)
 		local body = list.body
@@ -206,12 +271,89 @@ local function CreateList(key)
 		body:ClearAllPoints()
 		body:SetSize(armW, armH)
 		body:SetPoint(corner, list.frame, corner, 0, 0)
-		edgeV:ClearAllPoints()
-		edgeV:SetSize(THICK, armH)
-		edgeV:SetPoint(corner, list.frame, corner, 0, 0)
 		edgeH:ClearAllPoints()
 		edgeH:SetSize(armW, THICK)
 		edgeH:SetPoint(corner, list.frame, corner, 0, 0)
+		-- Center keeps one bar: the top when text grows down, the bottom when it grows up.
+		if align == "CENTER" then
+			edgeV:Hide()
+			return
+		end
+		edgeV:ClearAllPoints()
+		edgeV:SetSize(THICK, armH)
+		edgeV:SetPoint(corner, list.frame, corner, 0, 0)
+	end
+
+	local function HasLive()
+		local cfg = Cfg()
+		if not cfg then
+			return false
+		end
+		local count = cfg.lines
+		for i = 1, count do
+			if list.slots[i].active then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function HidePreview()
+		local rows = list.preview
+		for i = 1, #rows do
+			rows[i]:Hide()
+		end
+	end
+
+	-- Sample lines fill an unlocked list that has nothing live on it.
+	local function ShowPreview()
+		local cfg = Cfg()
+		if not cfg or not list.frame or not list.preview then
+			return
+		end
+		if cfg.lockPosition or HasLive() then
+			HidePreview()
+			return
+		end
+		local samples = PREVIEWS[key]
+		if not samples then
+			HidePreview()
+			return
+		end
+		local align, growUp, vertical, fromPoint = Corner()
+		local ySign = growUp and 1 or -1
+		local xInset = InsetX(align)
+		local yInset = growUp and THICK or -THICK
+		local peak = PeakAlpha()
+		local y = 0
+		local width = 0
+		for i = 1, #list.preview do
+			local fs = list.preview[i]
+			local sample = samples[i]
+			if sample then
+				local crit = sample[3]
+				local size = LineSize(crit)
+				UseFont(fs, size)
+				fs:SetJustifyH(align)
+				fs:SetJustifyV(vertical)
+				fs:SetText(sample[1])
+				local colorName = crit and "crit" or sample[2]
+				local r, g, b = SlotColor(colorName)
+				fs:SetTextColor(r, g, b)
+				fs:SetAlpha(peak)
+				fs:ClearAllPoints()
+				fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign)
+				fs:Show()
+				local textWidth = fs:GetStringWidth()
+				if type(textWidth) == "number" and textWidth > width then
+					width = textWidth
+				end
+				y = y + size
+			else
+				fs:Hide()
+			end
+		end
+		PlaceBorders(width + THICK, y + THICK)
 	end
 
 	local function Paint()
@@ -223,7 +365,7 @@ local function CreateList(key)
 		local now = GetTime()
 		local align, growUp, vertical, fromPoint = Corner()
 		local ySign = growUp and 1 or -1
-		local xInset = align == "RIGHT" and -THICK or THICK
+		local xInset = InsetX(align)
 		local yInset = growUp and THICK or -THICK
 		local y = 0
 		local width = 0
@@ -235,17 +377,18 @@ local function CreateList(key)
 				UseFont(fs, size)
 				fs:SetJustifyH(align)
 				fs:SetJustifyV(vertical)
-				if type(slot.format) == "string" then
-					fs:SetFormattedText(slot.format, slot.text)
-				else
-					fs:SetText(slot.text)
-				end
+				fs:SetText(slot.text)
 				local colorName = slot.crit and "crit" or slot.color
 				local r, g, b = SlotColor(colorName)
 				fs:SetTextColor(r, g, b)
+				local age = now - slot.born
+				local slide = 0
+				if cfg.animate then
+					slide = Slide(age, growUp)
+				end
 				fs:SetAlpha(AlphaFor(slot.born, now))
 				fs:ClearAllPoints()
-				fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign)
+				fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign + slide)
 				fs:Show()
 				-- A secret string has no readable width. Skip the measure.
 				if SecretBlocked(slot.text) then
@@ -271,6 +414,7 @@ local function CreateList(key)
 			end
 		end
 		PlaceBorders(width + THICK, y + THICK)
+		ShowPreview()
 	end
 
 	local function ApplyAlpha(now)
@@ -285,7 +429,8 @@ local function CreateList(key)
 			if slot.active then
 				local fs = list.fonts[i]
 				local alpha = AlphaFor(slot.born, now)
-				if alpha <= 0 then
+				-- The entrance starts at zero. That is not the line ending.
+				if alpha <= 0 and not (cfg.animate and (now - slot.born) < ENTER) then
 					slot.active = false
 					fs:Hide()
 				else
@@ -319,6 +464,45 @@ local function CreateList(key)
 		end
 	end
 
+	local function AnyEntering(now, cfg)
+		if not cfg.animate then
+			return false
+		end
+		local count = cfg.lines
+		for i = 1, count do
+			local slot = list.slots[i]
+			if slot.active and (now - slot.born) < ENTER then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function Nudge(now)
+		local cfg = Cfg()
+		if not cfg or not list.frame then
+			return
+		end
+		local count = cfg.lines
+		local align, growUp, _, fromPoint = Corner()
+		local ySign = growUp and 1 or -1
+		local xInset = InsetX(align)
+		local yInset = growUp and THICK or -THICK
+		local y = 0
+		for i = 1, count do
+			local slot = list.slots[i]
+			if slot.active then
+				local age = now - slot.born
+				if age < ENTER then
+					local fs = list.fonts[i]
+					fs:ClearAllPoints()
+					fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign + Slide(age, growUp))
+				end
+				y = y + LineSize(slot.crit)
+			end
+		end
+	end
+
 	local function Fade()
 		local cfg = Cfg()
 		if not cfg or not list.frame then
@@ -335,12 +519,19 @@ local function CreateList(key)
 				expired = true
 			end
 		end
+		local entering = AnyEntering(now, cfg)
 		if expired then
 			Compact()
-			Paint()
 		end
+		if expired or (list.nudging and not entering) then
+			Paint()
+		elseif entering then
+			Nudge(now)
+		end
+		list.nudging = entering
 		if not ApplyAlpha(GetTime()) then
 			list.watchingFade = false
+			list.nudging = false
 			list.frame:SetScript("OnUpdate", nil)
 		end
 	end
@@ -471,6 +662,16 @@ local function CreateList(key)
 			list.fonts[i] = fs
 		end
 
+		local samples = PREVIEWS[key]
+		if samples then
+			for i = 1, #samples do
+				local fs = textFrame:CreateFontString(nil, "OVERLAY")
+				fs:SetWordWrap(false)
+				fs:Hide()
+				list.preview[i] = fs
+			end
+		end
+
 		-- Built when the frame is. Not per hit.
 		list.fade = function()
 			Fade()
@@ -483,16 +684,18 @@ local function CreateList(key)
 			return
 		end
 		local locked = cfg.lockPosition
+		local sideEdge = not locked and cfg.align ~= "CENTER"
 		list.frame:SetMovable(not locked)
 		list.body:EnableMouse(not locked)
-		list.edgeV:EnableMouse(not locked)
+		list.edgeV:EnableMouse(sideEdge)
 		list.edgeH:EnableMouse(not locked)
 		list.body:SetShown(not locked)
-		list.edgeV:SetShown(not locked)
+		list.edgeV:SetShown(sideEdge)
 		list.edgeH:SetShown(not locked)
 		if locked then
 			GameTooltip:Hide()
 		end
+		ShowPreview()
 	end
 
 	function list:Refresh()
@@ -540,19 +743,11 @@ local function CreateList(key)
 		list:ApplyLock()
 	end
 
-	function list:AddLine(text, color, crit, format)
+	function list:AddLine(text, color, crit)
 		if not Cfg() then
 			return
 		end
-		-- A secret name cannot be compared. An empty plain string is dropped.
-		local secret = SecretBlocked(text)
-		if not secret and (type(text) ~= "string" or text == "") then
-			return
-		end
-		if secret and type(text) ~= "string" then
-			return
-		end
-		if format ~= nil and type(format) ~= "string" then
+		if type(text) ~= "string" or text == "" then
 			return
 		end
 		list:Init()
@@ -567,7 +762,6 @@ local function CreateList(key)
 		end
 		local top = list.slots[1]
 		top.text = text
-		top.format = format
 		top.color = color or "physical"
 		top.born = GetTime()
 		top.crit = crit and true or false
@@ -583,8 +777,8 @@ ns.damageList = CreateList("damage")
 ns.healList = CreateList("heal")
 ns.statusList = CreateList("status")
 
-function ns.AddLine(list, text, color, crit, format)
-	list:AddLine(text, color, crit, format)
+function ns.AddLine(list, text, color, crit)
+	list:AddLine(text, color, crit)
 end
 
 function ns.InitLists()
@@ -596,7 +790,6 @@ end
 function ns.ShowTest()
 	ns.AddLine(ns.statusList, "-Combat", "combat", false)
 	ns.AddLine(ns.statusList, "+Combat", "combat", false)
-	ns.AddLine(ns.statusList, "Polymorph dispelled", "dispel", false)
 	ns.AddLine(ns.damageList, "Dodge", "miss", false)
 	ns.AddLine(ns.damageList, "-860", "nature", false)
 	ns.AddLine(ns.damageList, "-1,284", "physical", false)
