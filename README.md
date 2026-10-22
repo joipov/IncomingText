@@ -2,13 +2,13 @@
 
 A scrolling damage list, a scrolling healing list, and a scrolling status list. Each has its own place, size, face, and direction. Dodge, parry, and the other misses stay on the damage list. `+Combat` and `-Combat` stay on the status list.
 
-Target client: World of Warcraft **Forever** (`## Interface: 16001`).
+Target client: World of Warcraft **Forever**, release client (`_forever_`, `## Interface: 16001`). The old Forever beta (`_classic_beta_`) uses the same TOC and game type.
 
 ## Features
 
 - Damage and misses go to the damage list. Healing goes to the healing list. Combat state goes to the status list. Each list has its own **Enable**. The damage list has **Show misses**. The status list has **Show combat**, which prints `+Combat` when you enter combat and `-Combat` when you leave.
 - Each list has **Lock position**, **Font**, **Font size**, **Crit size**, **Opacity**, **Fade time**, **Lines shown**, **Text align**, **Grow**, and **Animate entry**. **Text align** is left, center, or right. **Animate entry** fades a new line in and slides it into place. The same rows on the main page set those values on all three lists, and the rows there move to the new value. The font list includes faces from other addons when the shared media library is installed. Turn **Lock position** off to drag an area or an edge. Sample lines show where the text will sit until a real line is on screen. Right-click it to lock.
-- The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color. The **Status** page colors combat state.
+- The **Damage** page colors physical hits, critical hits, each spell school, and misses. The **Healing** page colors heals and critical heals. A critical line uses that list's critical color. The **Status** page colors entering combat (red by default) and leaving combat (green by default) separately. Only one combat line is ever on screen: a new state replaces the old one at once.
 - One minimap launcher, via LibDBIcon when present, otherwise a built-in button. On by default. The addon compartment and `/it` open settings.
 
 ## Commands
@@ -37,8 +37,10 @@ The repository lives outside the game folder; the AddOns entry is a
 directory junction to it:
 
 ```
-mklink /J "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\IncomingText" "D:\Repos\Joipov\IncomingText"
+mklink /J "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\IncomingText" "D:\Repos\Joipov\IncomingText"
 ```
+
+The same link works under `_classic_beta_` if the old beta client is still installed.
 
 Static checks (no game client needed):
 

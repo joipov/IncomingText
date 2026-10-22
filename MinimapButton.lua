@@ -59,7 +59,6 @@ function ns.UpdateMinimapButton()
 	end
 end
 
-
 local function TryLibDBIcon()
 	local LibStub = _G.LibStub
 	local ldb = LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true)

@@ -25,8 +25,8 @@ local PREVIEWS = {
 		{ "+640", "heal", false },
 	},
 	status = {
-		{ "+Combat", "combat", false },
-		{ "-Combat", "combat", false },
+		{ "+Combat", "combatIn", false },
+		{ "-Combat", "combatOut", false },
 	},
 }
 -- A new line fades and slides into place. Ease-out, then it sits still.
@@ -508,6 +508,12 @@ local function CreateList(key)
 		if not cfg or not list.frame then
 			return
 		end
+		-- A burst of hits in one frame paints once here, not once per hit.
+		list.paintedThisFrame = false
+		if list.pendingPaint then
+			list.pendingPaint = false
+			Paint()
+		end
 		local now = GetTime()
 		local count = cfg.lines
 		local life = HOLD + FadeSpan()
@@ -743,7 +749,7 @@ local function CreateList(key)
 		list:ApplyLock()
 	end
 
-	function list:AddLine(text, color, crit)
+	local function AddLine(text, color, crit, replace)
 		if not Cfg() then
 			return
 		end
@@ -755,6 +761,13 @@ local function CreateList(key)
 			return
 		end
 		list.frame:Show()
+		-- A replaced line is cleared before the same Paint below, so the old
+		-- and new lines never draw together, not even for one frame.
+		if replace then
+			for i = 1, MAX_LINES do
+				list.slots[i].active = false
+			end
+		end
 		local cfg = Cfg()
 		local count = cfg.lines
 		for i = count, 2, -1 do
@@ -766,8 +779,31 @@ local function CreateList(key)
 		top.born = GetTime()
 		top.crit = crit and true or false
 		top.active = true
-		Paint()
+		if replace then
+			-- Replacement paints in the same call, so the old combat line
+			-- and the new one never draw together, not even for one frame.
+			list.pendingPaint = false
+			list.paintedThisFrame = false
+			Paint()
+		elseif list.paintedThisFrame then
+			-- Already painted this frame; the fade update paints the rest
+			-- of the burst once, on the next frame.
+			list.pendingPaint = true
+		else
+			Paint()
+			list.paintedThisFrame = true
+		end
 		StartFade()
+	end
+
+	function list:AddLine(text, color, crit)
+		AddLine(text, color, crit, false)
+	end
+
+	-- Combat state is a single line, never a stack: entering replaces
+	-- leaving on screen at once, and the other way around.
+	function list:ReplaceLine(text, color, crit)
+		AddLine(text, color, crit, true)
 	end
 
 	return list
@@ -781,6 +817,10 @@ function ns.AddLine(list, text, color, crit)
 	list:AddLine(text, color, crit)
 end
 
+function ns.ReplaceLine(list, text, color, crit)
+	list:ReplaceLine(text, color, crit)
+end
+
 function ns.InitLists()
 	ns.damageList:Init()
 	ns.healList:Init()
@@ -788,8 +828,7 @@ function ns.InitLists()
 end
 
 function ns.ShowTest()
-	ns.AddLine(ns.statusList, "-Combat", "combat", false)
-	ns.AddLine(ns.statusList, "+Combat", "combat", false)
+	ns.ReplaceLine(ns.statusList, "+Combat", "combatIn", false)
 	ns.AddLine(ns.damageList, "Dodge", "miss", false)
 	ns.AddLine(ns.damageList, "-860", "nature", false)
 	ns.AddLine(ns.damageList, "-1,284", "physical", false)

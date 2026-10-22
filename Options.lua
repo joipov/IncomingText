@@ -33,7 +33,8 @@ local HEAL_COLORS = {
 	{ "crit", "Critical hits", "A critical heal uses this color instead of the heal color." },
 }
 local STATUS_COLORS = {
-	{ "combat", "Combat", "Entering and leaving combat." },
+	{ "combatIn", "Entering combat", "The +Combat line. Red by default." },
+	{ "combatOut", "Leaving combat", "The -Combat line. Green by default." },
 }
 local ENABLE = {
 	damage = { "Enable damage", "Damage and misses that land on you." },

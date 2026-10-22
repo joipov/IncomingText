@@ -1,7 +1,9 @@
 local ADDON_NAME, ns = ...
 
 -- One event frame. The combat log is closed, so a hit is only UNIT_COMBAT on
--- the player: action, crit flag, amount, and school.
+-- the player: action, crit flag, amount, and school. An amount that arrives
+-- as a combat secret is dropped by PlainNumber below: it cannot be turned
+-- into text, and no other event on this client carries a per-hit amount.
 
 local issecretvalue = issecretvalue
 local canaccessvalue = canaccessvalue
@@ -87,6 +89,15 @@ local function FormatAmount(amount)
 	return out
 end
 
+-- Plain Lua 5.1 has no bit library; the client supplies one, and the
+-- arithmetic form is the same test for these single-bit values.
+local function HasSchoolBit(n, bitValue)
+	if bit and bit.band then
+		return bit.band(n, bitValue) == bitValue
+	end
+	return math.floor(n / bitValue) % 2 == 1
+end
+
 local function SchoolName(mask)
 	local n = PlainNumber(mask)
 	if not n then
@@ -100,7 +111,7 @@ local function SchoolName(mask)
 	for i = 1, #SCHOOL_BITS do
 		local bitValue = SCHOOL_BITS[i]
 		local name = SCHOOL_NAME[bitValue]
-		if name and bit.band(n, bitValue) == bitValue then
+		if name and HasSchoolBit(n, bitValue) then
 			return name
 		end
 	end
@@ -165,9 +176,9 @@ local function AddCombat(entering)
 		return
 	end
 	if entering then
-		ns.AddLine(ns.statusList, "+Combat", "combat", false)
+		ns.ReplaceLine(ns.statusList, "+Combat", "combatIn", false)
 	else
-		ns.AddLine(ns.statusList, "-Combat", "combat", false)
+		ns.ReplaceLine(ns.statusList, "-Combat", "combatOut", false)
 	end
 end
 

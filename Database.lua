@@ -3,7 +3,7 @@ local _, ns = ...
 -- Saved variables: defaults and validation. Plain Lua, so the tests can load
 -- it without a client. Damage, healing, and status are separate list tables.
 
-local DB_VERSION = 4
+local DB_VERSION = 5
 local MINIMAP_POS = 190
 local HEAL_SHIFT = -160
 
@@ -42,7 +42,8 @@ local COLOR_DEFAULTS = {
 	arcane = { 0.90, 0.50, 0.90 },
 	heal = { 0.20, 0.90, 0.55 },
 	miss = { 0.75, 0.75, 0.75 },
-	combat = { 139 / 255, 92 / 255, 246 / 255 },
+	combatIn = { 1, 0.2, 0.2 },
+	combatOut = { 0.25, 0.9, 0.35 },
 }
 
 local DAMAGE_COLORS = {
@@ -63,7 +64,8 @@ local HEAL_COLORS = {
 }
 
 local STATUS_COLORS = {
-	"combat",
+	"combatIn",
+	"combatOut",
 }
 
 local OLD_KEYS = {
@@ -341,6 +343,16 @@ local function SplitLists(db)
 	end
 end
 
+-- One combat color becomes two. The old row goes, so entering is red and
+-- leaving is green until the player picks their own pair.
+local function SplitCombatColor(db)
+	local status = db.status
+	local colors = type(status) == "table" and status.colors or nil
+	if type(colors) == "table" then
+		colors.combat = nil
+	end
+end
+
 local function MigrateDB(db)
 	local version = db.version
 	if type(version) ~= "number" then
@@ -355,6 +367,9 @@ local function MigrateDB(db)
 	end
 	if version < 4 then
 		MoveCombat(db)
+	end
+	if version < 5 then
+		SplitCombatColor(db)
 	end
 	db.version = DB_VERSION
 end

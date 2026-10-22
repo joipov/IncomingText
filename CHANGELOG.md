@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0
+
+`+Combat` is red, `-Combat` is green, and only one of them is ever on screen.
+
+### Changed
+
+- **Entering combat** and **Leaving combat** on the Status page are separate colors, red and green by default. The old single combat color is gone.
+- A new combat line replaces the one still on screen at once, in the same repaint. The two never show together.
+- A burst of hits within one frame repaints the damage and healing lists once, on the next frame, instead of once per hit. The combat line still replaces at once.
+
 ## 2.2.1
 
 A change on the main page sets the same row on all three lists.
