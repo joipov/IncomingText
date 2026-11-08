@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.1
+
+Re-checked against the current Forever client; no code change was needed.
+
+### Changed
+
+- Verified against Forever client 1.60.1.70862 and the current EllesmereUIDamageMeters host.
+
 ## 2.3.0
 
 `+Combat` is red, `-Combat` is green, and only one of them is ever on screen.

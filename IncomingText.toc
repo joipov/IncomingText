@@ -2,7 +2,7 @@
 ## Title: Incoming Text
 ## Notes: Scrolling lists for damage, healing, and combat state.
 ## Author: Joipov
-## Version: 2.3.0
+## Version: 2.3.1
 ## Category: |cff8b5cf6Joipov|r Tools
 ## IconTexture: Interface\Icons\INV_Shield_06
 ## SavedVariables: IncomingTextDB

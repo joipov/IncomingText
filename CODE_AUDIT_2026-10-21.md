@@ -1,10 +1,19 @@
 # Incoming Text audit
 
-Target: World of Warcraft Forever, `## Interface: 16001` (client 1.60.1.70425), Lua 5.1.
+Target: World of Warcraft Forever, `## Interface: 16001` (client 1.60.1.70862), Lua 5.1.
 First audit for this addon. Compared 2026-10-21 against Shadowflare 0.21.3
 (2026-10-21) and EllesmereUIDamageMeters / EllesmereUIChat 9.6.1 (2026-10-19).
+Re-checked against client 1.60.1.70862 and EllesmereUIDamageMeters /
+EllesmereUIChat 9.8.2 on 2026-11-08.
 
 This note is for development. It is not shipped in the addon zip.
+
+## What changed in 2.3.1
+
+- Re-checked `UNIT_COMBAT`, the combat-state events, and the shared media
+  font lookup against client 1.60.1.70862. The addon has no direct
+  Ellesmere hooks, so the 9.8.2 damage-meter changes do not reach it. No
+  code change.
 
 ## Premise confirmed
 
