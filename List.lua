@@ -1,6 +1,6 @@
 local _, ns = ...
 
--- Three scrolling lists. Lines are a fixed pool: a fight must not create a frame
+-- Four scrolling lists. Lines are a fixed pool: a fight must not create a frame
 -- per hit. OnUpdate runs only while a line is entering or fading.
 
 local MAX_LINES = 24
@@ -27,6 +27,11 @@ local PREVIEWS = {
 	status = {
 		{ "+Combat", "combatIn", false },
 		{ "-Combat", "combatOut", false },
+	},
+	power = {
+		{ "-8%", "mana", false },
+		{ "-15", "rage", false },
+		{ "-40", "energy", false },
 	},
 }
 -- A new line fades and slides into place. Ease-out, then it sits still.
@@ -753,7 +758,8 @@ local function CreateList(key)
 		if not Cfg() then
 			return
 		end
-		if type(text) ~= "string" or text == "" then
+		-- A secret line is a string the client will not let us compare.
+		if type(text) ~= "string" or (not SecretBlocked(text) and text == "") then
 			return
 		end
 		list:Init()
@@ -812,6 +818,7 @@ end
 ns.damageList = CreateList("damage")
 ns.healList = CreateList("heal")
 ns.statusList = CreateList("status")
+ns.powerList = CreateList("power")
 
 function ns.AddLine(list, text, color, crit)
 	list:AddLine(text, color, crit)
@@ -825,6 +832,7 @@ function ns.InitLists()
 	ns.damageList:Init()
 	ns.healList:Init()
 	ns.statusList:Init()
+	ns.powerList:Init()
 end
 
 function ns.ShowTest()
@@ -835,4 +843,7 @@ function ns.ShowTest()
 	ns.AddLine(ns.damageList, "-1,902", "fire", true)
 	ns.AddLine(ns.healList, "+640", "heal", false)
 	ns.AddLine(ns.healList, "+1,100", "heal", true)
+	ns.AddLine(ns.powerList, "-8%", "mana", false)
+	ns.AddLine(ns.powerList, "-15", "rage", false)
+	ns.AddLine(ns.powerList, "-40", "energy", false)
 end

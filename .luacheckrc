@@ -29,14 +29,21 @@ globals = {
 read_globals = {
 	"issecretvalue",
 	"canaccessvalue",
+	"issecrettable",
+	"canaccesstable",
 
 	"C_AddOns",
+	"C_Spell",
 	"C_Timer",
+	"C_TooltipInfo",
+	"Enum",
 	"LibStub",
 	"bit",
 
 	"CreateFrame",
+	"GetSpellPowerCost",
 	"GetTime",
+	"UnitPowerMax",
 
 	"GameTooltip",
 	"GetCursorPosition",

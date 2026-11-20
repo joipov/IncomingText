@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.4.1
+
+Healing shows again when the client hides the amount, and a critical heal is a lighter green.
+
+### Fixed
+
+- A heal or damage amount the client marks secret is drawn with its sign. It is not grouped with commas, because the number cannot be read. A readable amount is unchanged.
+
+### Changed
+
+- A critical heal is a lighter green than a normal heal. The old gold default on the healing list updates. A color you chose stays. Damage criticals stay gold.
+
+## 2.4.0
+
+A completed cast prints the mana, rage, energy, or focus it spent, in its own list.
+
+### Added
+
+- **Power** list. A cast that lands prints the amount it spent, such as `-8%` for mana and `-15` for rage. A downranked cast prints that rank's cost. A free cast prints nothing.
+- Mana is a percent of your maximum by default. Rage, energy, and focus show the cost itself. Each resource has its own setting and color.
+- The list starts to the right of center. Unlock it and drag, the same as the other lists.
+- The main page sets lock, font, size, opacity, fade, lines, align, grow, and animate entry on all four lists. Crit size stays on damage, healing, and status.
+
 ## 2.3.1
 
 Re-checked against the current Forever client; no code change was needed.

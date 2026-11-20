@@ -1,8 +1,8 @@
 local _, ns = ...
 
--- Settings panel. The parent page sets all three lists at once. Each list still
+-- Settings panel. The parent page sets all four lists at once. Each list still
 -- has its own page. Rows are registered from Blizzard's delegate so the settings
--- search stays secure.
+-- search stays secure. Crit size stays on damage, healing, and status.
 
 local Settings = Settings
 local ColorPickerFrame = ColorPickerFrame
@@ -30,16 +30,23 @@ local DAMAGE_COLORS = {
 }
 local HEAL_COLORS = {
 	{ "heal", "Healing", "Healing that lands on you and is not a critical hit." },
-	{ "crit", "Critical hits", "A critical heal uses this color instead of the heal color." },
+	{ "crit", "Critical hits", "A critical heal uses a lighter green than a normal heal." },
 }
 local STATUS_COLORS = {
 	{ "combatIn", "Entering combat", "The +Combat line. Red by default." },
 	{ "combatOut", "Leaving combat", "The -Combat line. Green by default." },
 }
+local POWER_COLORS = {
+	{ "mana", "Mana", "Mana a spell costs. Blue by default." },
+	{ "rage", "Rage", "Rage a spell costs. Red by default." },
+	{ "energy", "Energy", "Energy a spell costs. Yellow by default." },
+	{ "focus", "Focus", "Focus a spell costs. Orange by default." },
+}
 local ENABLE = {
 	damage = { "Enable damage", "Damage and misses that land on you." },
 	heal = { "Enable healing", "Healing that lands on you." },
 	status = { "Enable status", "Entering and leaving combat." },
+	power = { "Enable power", "Mana, rage, energy, or focus a completed cast spends." },
 }
 
 local function Clamp(value, lo, hi, fallback)
@@ -257,10 +264,18 @@ function ns.InitOptions()
 			controls.showMisses = AddCheckbox(prefix .. "_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnWatch, true)
 		elseif kind == "status" then
 			controls.showCombat = AddCheckbox(prefix .. "_COMBAT", "showCombat", "Show combat", "Entering and leaving combat.", OnWatch, true)
+		elseif kind == "power" then
+			local percentTip = "Percent of your maximum. Off shows the cost itself."
+			controls.percentMana = AddCheckbox(prefix .. "_PCT_MANA", "percentMana", "Mana as a percent", percentTip, nil, true)
+			controls.percentRage = AddCheckbox(prefix .. "_PCT_RAGE", "percentRage", "Rage as a percent", percentTip, nil, true)
+			controls.percentEnergy = AddCheckbox(prefix .. "_PCT_ENERGY", "percentEnergy", "Energy as a percent", percentTip, nil, true)
+			controls.percentFocus = AddCheckbox(prefix .. "_PCT_FOCUS", "percentFocus", "Focus as a percent", percentTip, nil, true)
 		end
 		controls.font = AddDropdown(prefix .. "_FONT", "font", "Font", "The face used for the list. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
 		controls.fontSize = AddSlider(prefix .. "_FONT_SIZE", "fontSize", "Font size", "Size of a normal line.", 10, 32, 1)
-		controls.critSize = AddSlider(prefix .. "_CRIT_SIZE", "critSize", "Crit size", "Size of a critical line.", 10, 48, 1)
+		if kind ~= "power" then
+			controls.critSize = AddSlider(prefix .. "_CRIT_SIZE", "critSize", "Crit size", "Size of a critical line.", 10, 48, 1)
+		end
 		controls.opacity = AddSlider(prefix .. "_OPACITY", "opacity", "Opacity", "How solid the text is. Lines fade out from this level.", 10, 100, 1)
 		controls.fadeTime = AddSlider(prefix .. "_FADE", "fadeTime", "Fade time", "How long a line takes to fade out, in seconds.", 0, 10, 1)
 		controls.lines = AddSlider(prefix .. "_LINES", "lines", "Lines shown", "How many lines stay on screen.", 4, 24, 1)
@@ -280,16 +295,19 @@ function ns.InitOptions()
 	local damagePage = Settings.RegisterVerticalLayoutSubcategory(category, "Damage")
 	local healPage = Settings.RegisterVerticalLayoutSubcategory(category, "Healing")
 	local statusPage = Settings.RegisterVerticalLayoutSubcategory(category, "Status")
+	local powerPage = Settings.RegisterVerticalLayoutSubcategory(category, "Power")
 	local damageControls, damageVars = BuildPage(damagePage, "IT_DMG", ns.db.damage, ns.damageDefaults, ns.damageList, DAMAGE_COLORS, "damage")
 	local healControls, healVars = BuildPage(healPage, "IT_HEAL", ns.db.heal, ns.healDefaults, ns.healList, HEAL_COLORS, "heal")
 	local statusControls, statusVars = BuildPage(statusPage, "IT_STATUS", ns.db.status, ns.statusDefaults, ns.statusList, STATUS_COLORS, "status")
+	local powerControls, powerVars = BuildPage(powerPage, "IT_POWER", ns.db.power, ns.powerDefaults, ns.powerList, POWER_COLORS, "power")
 
 	-- Not saved. A change here sets every list's own copy.
 	local damage = ns.db.damage
 	local heal = ns.db.heal
 	local status = ns.db.status
+	local power = ns.db.power
 	shared = {
-		lockPosition = damage.lockPosition and heal.lockPosition and status.lockPosition,
+		lockPosition = damage.lockPosition and heal.lockPosition and status.lockPosition and power.lockPosition,
 		font = damage.font,
 		fontSize = damage.fontSize,
 		critSize = damage.critSize,
@@ -303,7 +321,11 @@ function ns.InitOptions()
 
 	-- SetValue writes the saved copy. NotifyUpdate moves a control that is already on screen.
 	local function Assign(controls, vars, key)
-		controls[key]:SetValue(shared[key])
+		local control = controls[key]
+		if not control then
+			return
+		end
+		control:SetValue(shared[key])
 		Settings.NotifyUpdate(vars[key])
 	end
 
@@ -315,6 +337,7 @@ function ns.InitOptions()
 		Assign(damageControls, damageVars, key)
 		Assign(healControls, healVars, key)
 		Assign(statusControls, statusVars, key)
+		Assign(powerControls, powerVars, key)
 		applying = false
 	end
 
@@ -323,7 +346,7 @@ function ns.InitOptions()
 			return
 		end
 		applying = true
-		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition and ns.db.status.lockPosition
+		shared.lockPosition = ns.db.damage.lockPosition and ns.db.heal.lockPosition and ns.db.status.lockPosition and ns.db.power.lockPosition
 		bothLock:SetValue(shared.lockPosition)
 		Settings.NotifyUpdate("IT_BOTH_LOCK")
 		applying = false
@@ -394,17 +417,17 @@ function ns.InitOptions()
 		return setting
 	end
 
-	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all three lists. Drag any area while this is off. Sample lines show where the text will sit. Right-click an area to lock it.")
+	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all four lists. Drag any area while this is off. Sample lines show where the text will sit. Right-click an area to lock it.")
 
-	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on all three lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
-	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on all three lists.", 10, 32, 1)
-	AddSharedSlider("IT_BOTH_CRIT_SIZE", "critSize", "Crit size", "Sets the critical line size on all three lists.", 10, 48, 1)
-	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on all three lists.", 10, 100, 1)
-	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on all three lists, in seconds.", 0, 10, 1)
-	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for all three lists.", 4, 24, 1)
-	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets left, center, or right on all three lists.", ALIGNS)
-	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on all three lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
-	AddSharedCheckbox("IT_BOTH_ANIMATE", "animate", "Animate entry", "A new line fades and slides into place on all three lists.")
+	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on all four lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
+	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on all four lists.", 10, 32, 1)
+	AddSharedSlider("IT_BOTH_CRIT_SIZE", "critSize", "Crit size", "Sets the critical line size on the damage, healing, and status lists.", 10, 48, 1)
+	AddSharedSlider("IT_BOTH_OPACITY", "opacity", "Opacity", "Sets how solid the text is on all four lists.", 10, 100, 1)
+	AddSharedSlider("IT_BOTH_FADE", "fadeTime", "Fade time", "Sets how long a line takes to fade out on all four lists, in seconds.", 0, 10, 1)
+	AddSharedSlider("IT_BOTH_LINES", "lines", "Lines shown", "Sets how many lines stay on screen for all four lists.", 4, 24, 1)
+	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets left, center, or right on all four lists.", ALIGNS)
+	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on all four lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
+	AddSharedCheckbox("IT_BOTH_ANIMATE", "animate", "Animate entry", "A new line fades and slides into place on all four lists.")
 
 	Settings.RegisterAddOnCategory(category)
 end

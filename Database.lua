@@ -1,9 +1,9 @@
 local _, ns = ...
 
 -- Saved variables: defaults and validation. Plain Lua, so the tests can load
--- it without a client. Damage, healing, and status are separate list tables.
+-- it without a client. Damage, healing, status, and power are separate list tables.
 
-local DB_VERSION = 5
+local DB_VERSION = 7
 local MINIMAP_POS = 190
 local HEAL_SHIFT = -160
 
@@ -41,9 +41,15 @@ local COLOR_DEFAULTS = {
 	shadow = { 0.70, 0.40, 0.90 },
 	arcane = { 0.90, 0.50, 0.90 },
 	heal = { 0.20, 0.90, 0.55 },
+	-- Lighter tint of the heal green. Damage crits stay on the gold above.
+	healCrit = { 0.50, 1.00, 0.75 },
 	miss = { 0.75, 0.75, 0.75 },
 	combatIn = { 1, 0.2, 0.2 },
 	combatOut = { 0.25, 0.9, 0.35 },
+	mana = { 0.25, 0.50, 1 },
+	rage = { 0.90, 0.20, 0.20 },
+	energy = { 1, 0.95, 0.20 },
+	focus = { 1, 0.55, 0.20 },
 }
 
 local DAMAGE_COLORS = {
@@ -66,6 +72,13 @@ local HEAL_COLORS = {
 local STATUS_COLORS = {
 	"combatIn",
 	"combatOut",
+}
+
+local POWER_COLORS = {
+	"mana",
+	"rage",
+	"energy",
+	"focus",
 }
 
 local OLD_KEYS = {
@@ -134,6 +147,14 @@ local healDefaults = ListScalars(80 + HEAL_SHIFT)
 local statusDefaults = ListScalars(80 + HEAL_SHIFT * 2)
 statusDefaults.showCombat = true
 
+-- Right of center, so it does not sit on the incoming lists.
+local powerDefaults = ListScalars(80)
+powerDefaults.x = 260
+powerDefaults.percentMana = true
+powerDefaults.percentRage = false
+powerDefaults.percentEnergy = false
+powerDefaults.percentFocus = false
+
 -- Root scalars only. List tables are built in EnsureLists.
 local defaults = {
 	showMinimapButton = true,
@@ -156,13 +177,14 @@ local function ClampChannel(value, fallback)
 	return ClampNumber(value, 0, 1, fallback)
 end
 
-local function EnsureColors(list, keys)
+local function EnsureColors(list, keys, overrides)
 	if type(list.colors) ~= "table" then
 		list.colors = {}
 	end
 	for i = 1, #keys do
 		local key = keys[i]
-		local fallback = COLOR_DEFAULTS[key]
+		local special = overrides and overrides[key]
+		local fallback = special or COLOR_DEFAULTS[key]
 		local row = list.colors[key]
 		if type(row) ~= "table" then
 			row = {}
@@ -210,7 +232,7 @@ local function ValidateList(list, listDefaults)
 	list.y = ClampNumber(list.y, -4000, 4000, listDefaults.y)
 end
 
-local function EnsureList(list, listDefaults, colorKeys)
+local function EnsureList(list, listDefaults, colorKeys, colorOverrides)
 	if type(list) ~= "table" then
 		list = {}
 	end
@@ -220,7 +242,7 @@ local function EnsureList(list, listDefaults, colorKeys)
 		end
 	end
 	ValidateList(list, listDefaults)
-	EnsureColors(list, colorKeys)
+	EnsureColors(list, colorKeys, colorOverrides)
 	return list
 end
 
@@ -230,8 +252,9 @@ local function EnsureLists(db)
 	end
 	db.minimapIcon.minimapPos = ClampNumber(db.minimapIcon.minimapPos, 0, 360, MINIMAP_POS)
 	db.damage = EnsureList(db.damage, damageDefaults, DAMAGE_COLORS)
-	db.heal = EnsureList(db.heal, healDefaults, HEAL_COLORS)
+	db.heal = EnsureList(db.heal, healDefaults, HEAL_COLORS, { crit = COLOR_DEFAULTS.healCrit })
 	db.status = EnsureList(db.status, statusDefaults, STATUS_COLORS)
+	db.power = EnsureList(db.power, powerDefaults, POWER_COLORS)
 end
 
 local function CopyDefaults(db)
@@ -247,6 +270,20 @@ end
 
 local function Near(a, b)
 	return type(a) == "number" and math.abs(a - b) < 0.02
+end
+
+-- Only the original gold. A critical color the player chose stays.
+local function RetintList(list, key, oldR, oldG, oldB, fallback)
+	local colors = type(list) == "table" and list.colors or nil
+	local row = colors and colors[key]
+	if type(row) ~= "table" or not fallback then
+		return
+	end
+	if Near(row.r, oldR) and Near(row.g, oldG) and Near(row.b, oldB) then
+		row.r = fallback[1]
+		row.g = fallback[2]
+		row.b = fallback[3]
+	end
 end
 
 -- Only the original pair. A color the player chose stays.
@@ -371,6 +408,13 @@ local function MigrateDB(db)
 	if version < 5 then
 		SplitCombatColor(db)
 	end
+	-- Version 6 adds the power list. EnsureLists fills it from defaults,
+	-- and the other three lists keep the positions already saved.
+	-- Version 7 turns the original gold critical heal into a lighter green.
+	-- Damage criticals stay gold.
+	if version < 7 then
+		RetintList(db.heal, "crit", 1, 0.82, 0, COLOR_DEFAULTS.healCrit)
+	end
 	db.version = DB_VERSION
 end
 
@@ -387,4 +431,5 @@ ns.defaults = defaults
 ns.damageDefaults = damageDefaults
 ns.healDefaults = healDefaults
 ns.statusDefaults = statusDefaults
+ns.powerDefaults = powerDefaults
 ns.DB_VERSION = DB_VERSION

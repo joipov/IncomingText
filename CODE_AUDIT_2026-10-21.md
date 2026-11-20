@@ -35,13 +35,14 @@ that addon's feature, not a fix.
   used when present, with the same test done arithmetically otherwise.
   Plain Lua 5.1 has no bit library (lua.org 5.1 manual).
 
-## Secret amounts (documented behaviour, not a defect to engineer around)
+## Secret amounts
 
-`UNIT_COMBAT` amounts pass through `PlainNumber`, which drops combat
-secrets. If this build delivers amounts as secrets in combat, those hits
-cannot be turned into text by any means available to an addon, and the
-drop is the honest behaviour. It is stated in `Events.lua` where it
-happens. The school and action fields are read the same way.
+As of 2.4.1, a secret `UNIT_COMBAT` amount is signed and handed to the
+font. It is not read, compared, or grouped. A readable amount still goes
+through `PlainNumber` and `FormatAmount`. The school and action fields
+are read the same way as before: a secret school falls back to physical,
+and a secret crit flag is not a crit. Spell cost in `Power.lua` still
+drops a secret amount, because that line is a formatted percent or cost.
 
 ## Still holds
 

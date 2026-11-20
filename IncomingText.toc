@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Incoming Text
-## Notes: Scrolling lists for damage, healing, and combat state.
+## Notes: Scrolling lists for damage, healing, combat state, and spell cost.
 ## Author: Joipov
-## Version: 2.3.1
+## Version: 2.4.1
 ## Category: |cff8b5cf6Joipov|r Tools
 ## IconTexture: Interface\Icons\INV_Shield_06
 ## SavedVariables: IncomingTextDB
@@ -17,6 +17,7 @@
 
 Database.lua
 List.lua
+Power.lua
 Events.lua
 MinimapButton.lua
 Options.lua

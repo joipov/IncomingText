@@ -13,6 +13,7 @@ local function load(file)
 end
 
 load("Database.lua")
+load("Power.lua")
 
 local passed, failed = 0, 0
 
@@ -69,8 +70,27 @@ test("LoadDB fills defaults and reports a first run", function()
 	eq(db.damage.y, 80, "damage.y")
 	eq(db.heal.y, -80, "heal.y")
 	eq(db.status.y, -240, "status.y")
+	eq(db.power.enabled, true, "power.enabled")
+	eq(db.power.lockPosition, true, "power.lock")
+	eq(db.power.x, 260, "power.x")
+	eq(db.power.y, 80, "power.y")
+	eq(db.power.percentMana, true, "percentMana")
+	eq(db.power.percentRage, false, "percentRage")
+	eq(db.power.percentEnergy, false, "percentEnergy")
+	eq(db.power.percentFocus, false, "percentFocus")
+	eq(db.power.showMisses, nil, "power.showMisses")
+	eq(db.power.colors.mana.r, 0.25, "mana.r")
+	eq(db.power.colors.mana.g, 0.50, "mana.g")
+	eq(db.power.colors.mana.b, 1, "mana.b")
+	eq(db.power.colors.rage.r, 0.90, "rage.r")
+	eq(db.power.colors.rage.g, 0.20, "rage.g")
+	eq(db.power.colors.energy.r, 1, "energy.r")
+	eq(db.power.colors.energy.g, 0.95, "energy.g")
+	eq(db.power.colors.focus.r, 1, "focus.r")
+	eq(db.power.colors.focus.g, 0.55, "focus.g")
+	eq(db.power.colors.physical, nil, "power.physical")
 	eq(db.version, ns.DB_VERSION, "version")
-	eq(ns.DB_VERSION, 5, "DB_VERSION")
+	eq(ns.DB_VERSION, 7, "DB_VERSION")
 	eq(db.minimapIcon.minimapPos, 190, "minimapPos")
 	eq(db.damage.colors.physical.r, 1, "physical.r")
 	eq(db.damage.colors.physical.g, 1, "physical.g")
@@ -91,7 +111,9 @@ test("LoadDB fills defaults and reports a first run", function()
 	eq(db.heal.colors.heal.r, 0.20, "heal.r")
 	eq(db.heal.colors.heal.g, 0.90, "heal.g")
 	eq(db.heal.colors.heal.b, 0.55, "heal.b")
-	eq(db.heal.colors.crit.g, 0.82, "heal.crit.g")
+	eq(db.heal.colors.crit.r, 0.50, "heal.crit.r")
+	eq(db.heal.colors.crit.g, 1, "heal.crit.g")
+	eq(db.heal.colors.crit.b, 0.75, "heal.crit.b")
 	eq(db.heal.colors.miss, nil, "heal.miss")
 	eq(db.heal.colors.nature, nil, "heal.nature")
 	eq(db.damage.colors.interrupt, nil, "interrupt")
@@ -223,8 +245,33 @@ test("LoadDB retints the original nature and heal greens", function()
 	eq(db.heal.colors.heal.g, 0.90, "heal.g")
 	eq(db.heal.colors.heal.b, 0.55, "heal.b")
 	eq(db.damage.colors.fire.r, 0.2, "fire.r")
-	eq(db.version, 5, "version")
+	eq(db.version, 7, "version")
 	eq(db.colors, nil, "colors")
+end)
+
+test("LoadDB turns the original gold critical heal into a lighter green", function()
+	local db = ns.LoadDB({
+		version = 6,
+		heal = { colors = { crit = { r = 1, g = 0.82, b = 0 } } },
+		damage = { colors = { crit = { r = 1, g = 0.82, b = 0 } } },
+	})
+	eq(db.heal.colors.crit.r, 0.50, "heal.crit.r")
+	eq(db.heal.colors.crit.g, 1, "heal.crit.g")
+	eq(db.heal.colors.crit.b, 0.75, "heal.crit.b")
+	eq(db.damage.colors.crit.r, 1, "damage.crit.r")
+	eq(db.damage.colors.crit.g, 0.82, "damage.crit.g")
+	eq(db.damage.colors.crit.b, 0, "damage.crit.b")
+	eq(db.version, 7, "version")
+end)
+
+test("LoadDB keeps a chosen critical heal color", function()
+	local db = ns.LoadDB({
+		version = 6,
+		heal = { colors = { crit = { r = 1, g = 0, b = 0 } } },
+	})
+	eq(db.heal.colors.crit.r, 1, "heal.crit.r")
+	eq(db.heal.colors.crit.g, 0, "heal.crit.g")
+	eq(db.heal.colors.crit.b, 0, "heal.crit.b")
 end)
 
 test("LoadDB keeps a chosen nature color", function()
@@ -266,7 +313,7 @@ test("LoadDB splits a version 2 save into damage and healing", function()
 	eq(db.damage.colors.crit ~= db.heal.colors.crit, true, "crit copies")
 	eq(db.colors, nil, "colors")
 	eq(db.fontSize, nil, "flat font")
-	eq(db.version, 5, "version")
+	eq(db.version, 7, "version")
 	eq(db.damage.showCombat, nil, "damage.showCombat")
 	eq(db.status.showCombat, true, "status.showCombat")
 	eq(db.status.y, -240, "status.y")
@@ -296,7 +343,7 @@ test("LoadDB moves Show combat off a version 3 save", function()
 	eq(db.damage.showCombat, nil, "damage.showCombat")
 	eq(db.status.showCombat, false, "status.showCombat")
 	eq(db.status.showDispels, nil, "showDispels")
-	eq(db.version, 5, "version")
+	eq(db.version, 7, "version")
 end)
 
 test("LoadDB splits the combat color off a version 4 save", function()
@@ -313,11 +360,115 @@ test("LoadDB splits the combat color off a version 4 save", function()
 	eq(db.status.colors.combatOut.r, 0.25, "combatOut.r")
 	eq(db.status.colors.combatOut.g, 0.9, "combatOut.g")
 	eq(db.status.colors.combatOut.b, 0.35, "combatOut.b")
-	eq(db.version, 5, "version")
+	eq(db.version, 7, "version")
 end)
 
 test("LoadDB clamps the minimap position", function()
 	eq(ns.LoadDB({ minimapIcon = { minimapPos = 400 } }).minimapIcon.minimapPos, 360, "minimapPos")
+end)
+
+test("LoadDB adds the power list without moving the others", function()
+	local db = ns.LoadDB({
+		version = 5,
+		damage = { x = 10, y = 20 },
+		heal = { x = 11, y = 21 },
+		status = { x = 12, y = 22 },
+	})
+	eq(db.damage.x, 10, "damage.x")
+	eq(db.damage.y, 20, "damage.y")
+	eq(db.heal.x, 11, "heal.x")
+	eq(db.heal.y, 21, "heal.y")
+	eq(db.status.x, 12, "status.x")
+	eq(db.status.y, 22, "status.y")
+	eq(db.power.enabled, true, "power.enabled")
+	eq(db.power.x, 260, "power.x")
+	eq(db.power.y, 80, "power.y")
+	eq(db.power.percentMana, true, "percentMana")
+	eq(db.power.percentRage, false, "percentRage")
+	eq(db.power.percentEnergy, false, "percentEnergy")
+	eq(db.power.percentFocus, false, "percentFocus")
+	eq(db.version, 7, "version")
+end)
+
+test("LoadDB keeps power percent choices and a chosen mana color", function()
+	local db = ns.LoadDB({
+		version = 6,
+		power = {
+			percentMana = false,
+			percentRage = true,
+			x = 4,
+			colors = { mana = { r = 0.1, g = 0.2, b = 0.3 } },
+		},
+	})
+	eq(db.power.percentMana, false, "percentMana")
+	eq(db.power.percentRage, true, "percentRage")
+	eq(db.power.percentEnergy, false, "percentEnergy")
+	eq(db.power.percentFocus, false, "percentFocus")
+	eq(db.power.x, 4, "x")
+	eq(db.power.colors.mana.r, 0.1, "mana.r")
+	eq(db.power.colors.mana.g, 0.2, "mana.g")
+	eq(db.power.colors.mana.b, 0.3, "mana.b")
+	eq(db.power.colors.rage.r, 0.90, "rage.r")
+	eq(db.power.colors.focus.g, 0.55, "focus.g")
+end)
+
+test("power text is a percent for mana and the cost itself for rage", function()
+	local cfg = {
+		percentMana = true,
+		percentRage = false,
+		percentEnergy = false,
+		percentFocus = false,
+	}
+	local text, color = ns.FormatPowerLine(cfg, 320, 0, 4000)
+	eq(text, "-8%", "mana percent")
+	eq(color, "mana", "mana color")
+	text, color = ns.FormatPowerLine(cfg, 120, 0, 4000)
+	eq(text, "-3%", "lower rank")
+	eq(color, "mana", "lower color")
+	text, color = ns.FormatPowerLine(cfg, 15, 1, 100)
+	eq(text, "-15", "rage")
+	eq(color, "rage", "rage color")
+	text, color = ns.FormatPowerLine(cfg, 40, 3)
+	eq(text, "-40", "energy")
+	eq(color, "energy", "energy color")
+	text, color = ns.FormatPowerLine(cfg, 25, 2)
+	eq(text, "-25", "focus")
+	eq(color, "focus", "focus color")
+	text, color = ns.FormatPowerLine(cfg, 10, 0, 4000)
+	eq(text, "<1%", "under one percent")
+	eq(color, "mana", "under color")
+	eq(ns.FormatPowerLine(cfg, 0, 0, 4000), nil, "zero")
+	eq(ns.FormatPowerLine(cfg, -8, 0, 4000), nil, "negative")
+	eq(ns.FormatPowerLine(cfg, 15, 9, 100), nil, "unknown power")
+	text, color = ns.FormatPowerLine(cfg, 200, 0)
+	eq(text, "-200", "percent without a maximum")
+	eq(color, "mana", "fallback color")
+	cfg.percentRage = true
+	text, color = ns.FormatPowerLine(cfg, 15, 1, 100)
+	eq(text, "-15%", "rage percent")
+	eq(color, "rage", "rage percent color")
+	eq(ns.FormatPowerLine(nil, 15, 1, 100), nil, "no list")
+end)
+
+test("a tooltip cost line is the flat amount, and a percent or per-second line is not", function()
+	local amount, power = ns.MatchPowerCost("120 Mana")
+	eq(amount, 120, "mana")
+	eq(power, 0, "mana power")
+	amount, power = ns.MatchPowerCost("15 Rage")
+	eq(amount, 15, "rage")
+	eq(power, 1, "rage power")
+	amount, power = ns.MatchPowerCost("1,250 mana")
+	eq(amount, 1250, "comma")
+	eq(power, 0, "comma power")
+	amount, power = ns.MatchPowerCost("3% of base mana")
+	eq(amount, nil, "percent amount")
+	eq(power, 0, "percent power")
+	amount, power = ns.MatchPowerCost("30 mana per sec")
+	eq(amount, nil, "per second amount")
+	eq(power, 0, "per second power")
+	amount, power = ns.MatchPowerCost("hello")
+	eq(amount, nil, "plain amount")
+	eq(power, nil, "plain power")
 end)
 
 if failed > 0 then

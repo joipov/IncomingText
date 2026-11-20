@@ -1,9 +1,10 @@
 local ADDON_NAME, ns = ...
 
 -- One event frame. The combat log is closed, so a hit is only UNIT_COMBAT on
--- the player: action, crit flag, amount, and school. An amount that arrives
--- as a combat secret is dropped by PlainNumber below: it cannot be turned
--- into text, and no other event on this client carries a per-hit amount.
+-- the player: action, crit flag, amount, and school. A readable amount is
+-- grouped with commas. A secret amount is signed and drawn as the client
+-- prints it: it can be concatenated and handed to the font, not read.
+-- A spell cost comes from the cast that lands, not from the power bar.
 
 local issecretvalue = issecretvalue
 local canaccessvalue = canaccessvalue
@@ -89,6 +90,20 @@ local function FormatAmount(amount)
 	return out
 end
 
+-- The sign is concatenated. A secret number stays secret, which the font
+-- can draw, and a readable number is grouped first. A secret cannot be
+-- compared, so a hidden 0 is shown rather than dropped.
+local function DisplayAmount(sign, amount)
+	if type(amount) == "number" and SecretBlocked(amount) then
+		return sign .. amount
+	end
+	local n = PlainNumber(amount)
+	if not n or n <= 0 then
+		return nil
+	end
+	return sign .. FormatAmount(n)
+end
+
 -- Plain Lua 5.1 has no bit library; the client supplies one, and the
 -- arithmetic form is the same test for these single-bit values.
 local function HasSchoolBit(n, bitValue)
@@ -134,6 +149,17 @@ local function StatusCfg()
 	return ns.db and ns.db.status
 end
 
+local function PowerCfg()
+	return ns.db and ns.db.power
+end
+
+-- Channel start and cast success for one spell arrive together. The same
+-- cast guid, or the same spell a moment later, is one line.
+local lastPowerGUID
+local lastPowerID
+local lastPowerTime
+local POWER_DEDUPE = 0.25
+
 local function AddMiss(kind)
 	local cfg = DamageCfg()
 	if not cfg or not cfg.enabled or not cfg.showMisses then
@@ -151,11 +177,11 @@ local function AddDamage(amount, school, crit)
 	if not cfg or not cfg.enabled then
 		return
 	end
-	local n = PlainNumber(amount)
-	if not n or n <= 0 then
+	local text = DisplayAmount("-", amount)
+	if not text then
 		return
 	end
-	ns.AddLine(ns.damageList, "-" .. FormatAmount(n), SchoolName(school), crit)
+	ns.AddLine(ns.damageList, text, SchoolName(school), crit)
 end
 
 local function AddHeal(amount, crit)
@@ -163,11 +189,11 @@ local function AddHeal(amount, crit)
 	if not cfg or not cfg.enabled then
 		return
 	end
-	local n = PlainNumber(amount)
-	if not n or n <= 0 then
+	local text = DisplayAmount("+", amount)
+	if not text then
 		return
 	end
-	ns.AddLine(ns.healList, "+" .. FormatAmount(n), "heal", crit)
+	ns.AddLine(ns.healList, text, "heal", crit)
 end
 
 local function AddCombat(entering)
@@ -180,6 +206,41 @@ local function AddCombat(entering)
 	else
 		ns.ReplaceLine(ns.statusList, "-Combat", "combatOut", false)
 	end
+end
+
+local function AddPower(castGUID, spellID)
+	local cfg = PowerCfg()
+	if not cfg or not cfg.enabled or not ns.powerList then
+		return
+	end
+	local id = PlainNumber(spellID)
+	if not id or id <= 0 then
+		return
+	end
+	local amount, powerType = ns.PlayerSpellCost(id)
+	local text, color = ns.FormatPowerLine(cfg, amount, powerType)
+	if not text or not color then
+		return
+	end
+	local guid = PlainString(castGUID)
+	local now = PlainNumber(GetTime())
+	if guid and guid == lastPowerGUID then
+		return
+	end
+	if now and id == lastPowerID and type(lastPowerTime) == "number" and (now - lastPowerTime) < POWER_DEDUPE then
+		return
+	end
+	lastPowerGUID = guid
+	lastPowerID = id
+	lastPowerTime = now
+	ns.AddLine(ns.powerList, text, color, false)
+end
+
+local function HandleSpellCast(unit, castGUID, spellID)
+	if PlainString(unit) ~= "player" then
+		return
+	end
+	AddPower(castGUID, spellID)
 end
 
 local function HandleCombat(unit, action, flagText, amount, school)
@@ -210,9 +271,12 @@ function ns.ApplyWatching()
 	eventFrame:UnregisterEvent("UNIT_COMBAT")
 	eventFrame:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	eventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	eventFrame:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	eventFrame:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START")
 	local damage = DamageCfg()
 	local heal = HealCfg()
 	local status = StatusCfg()
+	local power = PowerCfg()
 	ns.InitLists()
 	if damage then
 		ns.damageList:SetShown(damage.enabled)
@@ -223,12 +287,19 @@ function ns.ApplyWatching()
 	if status then
 		ns.statusList:SetShown(status.enabled)
 	end
+	if power then
+		ns.powerList:SetShown(power.enabled)
+	end
 	if (damage and damage.enabled) or (heal and heal.enabled) then
 		eventFrame:RegisterUnitEvent("UNIT_COMBAT", "player")
 	end
 	if status and status.enabled and status.showCombat then
 		eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 		eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+	end
+	if power and power.enabled then
+		eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+		eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 	end
 end
 
@@ -252,6 +323,14 @@ end
 
 function handlers.UNIT_COMBAT(unit, action, flagText, amount, school)
 	HandleCombat(unit, action, flagText, amount, school)
+end
+
+function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, castGUID, spellID)
+	HandleSpellCast(unit, castGUID, spellID)
+end
+
+function handlers.UNIT_SPELLCAST_CHANNEL_START(unit, castGUID, spellID)
+	HandleSpellCast(unit, castGUID, spellID)
 end
 
 function handlers.PLAYER_REGEN_DISABLED()

@@ -8,6 +8,12 @@ issecretvalue = issecretvalue
 ---@type fun(value: any): boolean
 canaccessvalue = canaccessvalue
 
+---@type fun(value: any): boolean
+issecrettable = issecrettable
+
+---@type fun(value: any): boolean
+canaccesstable = canaccesstable
+
 ---@param label string
 ---@param buttonText string
 ---@param onClick function
