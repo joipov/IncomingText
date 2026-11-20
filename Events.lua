@@ -4,6 +4,7 @@ local ADDON_NAME, ns = ...
 -- the player: action, crit flag, amount, and school. A readable amount is
 -- grouped with commas. A secret amount is signed and drawn as the client
 -- prints it: it can be concatenated and handed to the font, not read.
+-- A physical hit is white. Any other school uses that school's color.
 -- A spell cost comes from the cast that lands, not from the power bar.
 
 local issecretvalue = issecretvalue

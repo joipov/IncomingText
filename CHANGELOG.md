@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.2
+
+A hidden hit keeps its color. A physical hit is white, and every other school keeps its own color.
+
+### Fixed
+
+- The color is applied before the number is drawn. A hidden amount blocked a color set afterward, so a physical hit could stay green.
+- A physical hit is white. Holy, fire, nature, frost, shadow, and arcane each use their own color. A critical hit stays gold.
+
 ## 2.4.1
 
 Healing shows again when the client hides the amount, and a critical heal is a lighter green.

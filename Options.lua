@@ -18,7 +18,7 @@ local GROWS = {
 	{ "UP", "Up" },
 }
 local DAMAGE_COLORS = {
-	{ "physical", "Physical hits", "Physical damage you take." },
+	{ "physical", "Physical hits", "Physical damage you take. White by default." },
 	{ "crit", "Critical hits", "A critical hit uses this color instead of the school color." },
 	{ "holy", "Holy", "Holy damage you take." },
 	{ "fire", "Fire", "Fire damage you take." },

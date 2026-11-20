@@ -341,10 +341,11 @@ local function CreateList(key)
 				UseFont(fs, size)
 				fs:SetJustifyH(align)
 				fs:SetJustifyV(vertical)
-				fs:SetText(sample[1])
 				local colorName = crit and "crit" or sample[2]
 				local r, g, b = SlotColor(colorName)
+				-- Color before the text. A secret string blocks a later color change.
 				fs:SetTextColor(r, g, b)
+				fs:SetText(sample[1])
 				fs:SetAlpha(peak)
 				fs:ClearAllPoints()
 				fs:SetPoint(fromPoint, list.frame, fromPoint, xInset, yInset + y * ySign)
@@ -382,10 +383,11 @@ local function CreateList(key)
 				UseFont(fs, size)
 				fs:SetJustifyH(align)
 				fs:SetJustifyV(vertical)
-				fs:SetText(slot.text)
 				local colorName = slot.crit and "crit" or slot.color
 				local r, g, b = SlotColor(colorName)
+				-- Color before the text. A secret string blocks a later color change.
 				fs:SetTextColor(r, g, b)
+				fs:SetText(slot.text)
 				local age = now - slot.born
 				local slide = 0
 				if cfg.animate then
