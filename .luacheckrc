@@ -54,6 +54,9 @@ read_globals = {
 	"ColorPickerFrame",
 	"CreateSettingsButtonInitializer",
 	"MinimalSliderWithSteppersMixin",
+	"GameFontHighlightSmall",
+	"InputBoxTemplate",
+	"SettingsListElementTemplate",
 
 	"print",
 }

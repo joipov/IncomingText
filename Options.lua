@@ -104,25 +104,6 @@ function ns.InitOptions()
 	local category = Settings.RegisterVerticalLayoutCategory("Incoming Text")
 	ns.settingsCategory = category
 
-	local minimap = Settings.RegisterAddOnSetting(
-		category,
-		"IT_SHOW_MINIMAP",
-		"showMinimapButton",
-		ns.db,
-		Settings.VarType.Boolean,
-		"Minimap button",
-		ns.defaults.showMinimapButton
-	)
-	-- Beside the control's own listener, which is what redraws the row.
-	Settings.SetOnValueChangedCallback("IT_SHOW_MINIMAP", function()
-		ns.UpdateMinimapButton()
-	end)
-	Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(
-		minimap,
-		nil,
-		"Button on the minimap. Opens settings."
-	))
-
 	-- Set while a main-page change is being copied onto every list, so a list
 	-- checkbox does not write that change back and lock the other lists too.
 	local applying = false
@@ -178,6 +159,89 @@ function ns.InitOptions()
 			local initializer = Settings.CreateSliderInitializer(setting, options, tooltip)
 			Gate(initializer, storage, enableVar)
 			Settings.RegisterInitializer(page, initializer)
+			return setting
+		end
+
+		local function AddPixelBox(var, key, label, tooltip, lo, hi)
+			vars[key] = var
+			local setting = Settings.RegisterAddOnSetting(
+				page,
+				var,
+				key,
+				storage,
+				Settings.VarType.Number,
+				label,
+				listDefaults[key]
+			)
+			Settings.SetOnValueChangedCallback(var, function()
+				storage[key] = math.floor(Clamp(storage[key], lo, hi, listDefaults[key]) + 0.5)
+				if listObj.ApplyPosition then
+					listObj:ApplyPosition()
+				end
+			end)
+			local initializer
+			if Settings.CreateElementInitializer then
+				initializer = Settings.CreateElementInitializer("SettingsListElementTemplate", {
+					name = label,
+					tooltipText = tooltip,
+				})
+			end
+			if initializer and initializer.InitFrame then
+				local origInit = initializer.InitFrame
+				function initializer:InitFrame(frame)
+					origInit(self, frame)
+					local box = frame.pixelBox
+					if not box then
+						box = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+						box:SetAutoFocus(false)
+						box:SetSize(70, 20)
+						box:SetMaxLetters(7)
+						box:SetPoint("RIGHT", frame, "RIGHT", -16, 0)
+						box:SetFontObject(GameFontHighlightSmall)
+						box:SetJustifyH("CENTER")
+						local function Commit()
+							local n = tonumber(box:GetText())
+							if type(n) == "number" and n == n then
+								setting:SetValue(math.floor(Clamp(n, lo, hi, listDefaults[key]) + 0.5))
+							else
+								box:SetText(tostring(storage[key]))
+							end
+						end
+						box:SetScript("OnEnterPressed", function()
+							Commit()
+							box:ClearFocus()
+						end)
+						box:SetScript("OnEscapePressed", function()
+							box.reverting = true
+							box:SetText(tostring(storage[key]))
+							box:ClearFocus()
+							box.reverting = false
+						end)
+						box:SetScript("OnEditFocusLost", function()
+							if box.reverting then
+								return
+							end
+							Commit()
+						end)
+						frame.pixelBox = box
+					end
+					if not box:HasFocus() then
+						box:SetText(tostring(storage[key]))
+					end
+				end
+				pcall(function()
+					Gate(initializer, storage, enableVar)
+				end)
+				Settings.RegisterInitializer(page, initializer)
+			else
+				local options = Settings.CreateSliderOptions(lo, hi, 1)
+				options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
+					return string.format("%.0f", value)
+				end)
+				initializer = Settings.CreateSliderInitializer(setting, options, tooltip)
+				Gate(initializer, storage, enableVar)
+				Settings.RegisterInitializer(page, initializer)
+			end
 			return setting
 		end
 
@@ -253,13 +317,17 @@ function ns.InitOptions()
 		local controls = {}
 		local enable = ENABLE[kind]
 		controls.enabled = AddCheckbox(prefix .. "_ENABLED", "enabled", enable[1], enable[2], OnWatch, false)
-		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or an edge while this is off. Sample lines show where the text will sit. Right-click it to lock.", function()
+		controls.lockPosition = AddCheckbox(prefix .. "_LOCK", "lockPosition", "Lock position", "Drag the area or an edge while this is off. Sample lines show where the text will sit. Type X and Y on the mover or here. Right-click it to lock.", function()
 			listObj:ApplyLock()
 			if SyncBothLock then
 				SyncBothLock()
 			end
 		end, true)
 		listObj.lockSetting = controls.lockPosition
+		controls.x = AddPixelBox(prefix .. "_X", "x", "X", "Horizontal offset in pixels. You can also type this on the unlocked mover.", -4000, 4000)
+		controls.y = AddPixelBox(prefix .. "_Y", "y", "Y", "Vertical offset in pixels. You can also type this on the unlocked mover.", -4000, 4000)
+		listObj.xSetting = controls.x
+		listObj.ySetting = controls.y
 		if kind == "damage" then
 			controls.showMisses = AddCheckbox(prefix .. "_MISSES", "showMisses", "Show misses", "Miss, dodge, parry, block, and similar lines.", OnWatch, true)
 		elseif kind == "status" then
@@ -417,7 +485,7 @@ function ns.InitOptions()
 		return setting
 	end
 
-	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all four lists. Drag any area while this is off. Sample lines show where the text will sit. Right-click an area to lock it.")
+	bothLock = AddSharedCheckbox("IT_BOTH_LOCK", "lockPosition", "Lock position", "Locks or unlocks all four lists. Drag any area while this is off. Type X and Y on a list page or on that mover. Right-click an area to lock it.")
 
 	AddSharedDropdown("IT_BOTH_FONT", "font", "Font", "Sets the font on all four lists. Fonts from other addons appear here when the shared media library is installed.", ns.FontChoices)
 	AddSharedSlider("IT_BOTH_FONT_SIZE", "fontSize", "Font size", "Sets the normal line size on all four lists.", 10, 32, 1)
@@ -428,6 +496,27 @@ function ns.InitOptions()
 	AddSharedDropdown("IT_BOTH_ALIGN", "align", "Text align", "Sets left, center, or right on all four lists.", ALIGNS)
 	AddSharedDropdown("IT_BOTH_GROW", "grow", "Grow", "Sets the grow direction on all four lists. Down puts the newest line at the top. Up puts it at the bottom.", GROWS)
 	AddSharedCheckbox("IT_BOTH_ANIMATE", "animate", "Animate entry", "A new line fades and slides into place on all four lists.")
+
+	local minimap = Settings.RegisterAddOnSetting(
+		category,
+		"IT_SHOW_MINIMAP",
+		"showMinimapButton",
+		ns.db,
+		Settings.VarType.Boolean,
+		"Minimap button",
+		ns.defaults.showMinimapButton
+	)
+	-- Beside the control's own listener, which is what redraws the row.
+	Settings.SetOnValueChangedCallback("IT_SHOW_MINIMAP", function()
+		ns.UpdateMinimapButton()
+	end)
+	Settings.RegisterInitializer(category, Settings.CreateCheckboxInitializer(
+		minimap,
+		nil,
+		"Button on the minimap. Opens settings."
+	))
+
+	ns.AddProfileShareButtons(category)
 
 	Settings.RegisterAddOnCategory(category)
 end

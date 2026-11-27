@@ -13,6 +13,7 @@ local function load(file)
 end
 
 load("Database.lua")
+load("Profile.lua")
 load("Power.lua")
 
 local passed, failed = 0, 0
@@ -127,6 +128,12 @@ test("LoadDB fills defaults and reports a first run", function()
 	eq(db.status.colors.dispel, nil, "status.dispel")
 	eq(db.damage.colors.combat, nil, "damage.combat")
 	eq(db.damage.colors.dispel, nil, "damage.dispel")
+end)
+
+test("LoadDB rounds offsets to whole pixels", function()
+	local db = ns.LoadDB({ version = 7, damage = { x = 12.6, y = -20.4 } })
+	eq(db.damage.x, 13, "round x")
+	eq(db.damage.y, -20, "round y")
 end)
 
 test("LoadDB reports an existing save", function()
@@ -469,6 +476,22 @@ test("a tooltip cost line is the flat amount, and a percent or per-second line i
 	amount, power = ns.MatchPowerCost("hello")
 	eq(amount, nil, "plain amount")
 	eq(power, nil, "plain power")
+end)
+
+test("profile export roundtrips settings and positions", function()
+	ns.db = ns.LoadDB({ version = 7, damage = { x = 50, fontSize = 22 } })
+	local str = ns.ExportProfile()
+	eq(str:sub(1, 17), "!JPV:IncomingText", "prefix")
+	ns.db = ns.LoadDB(nil)
+	eq(ns.db.damage.x, -260, "reset")
+	eq(ns.ImportProfile(str), true, "import")
+	eq(ns.db.damage.x, 50, "x")
+	eq(ns.db.damage.fontSize, 22, "fontSize")
+end)
+
+test("profile import rejects another addon", function()
+	ns.db = ns.LoadDB(nil)
+	eq(ns.ImportProfile("!JPV:GearStats!{showMinimapButton=false}"), nil, "other")
 end)
 
 if failed > 0 then

@@ -557,6 +557,90 @@ local function CreateList(key)
 		list.frame:SetScript("OnUpdate", list.fade)
 	end
 
+	local applyingCoords = false
+
+	local function Pixel(value, fallback)
+		value = tonumber(value)
+		if type(value) ~= "number" or value ~= value then
+			return fallback
+		end
+		value = math.floor(value + 0.5)
+		if value < -4000 then
+			return -4000
+		end
+		if value > 4000 then
+			return 4000
+		end
+		return value
+	end
+
+	local function BoxHasFocus()
+		local bar = list.coordBar
+		if not bar then
+			return false
+		end
+		return (bar.xBox and bar.xBox:HasFocus()) or (bar.yBox and bar.yBox:HasFocus())
+	end
+
+	local function PaintCoordBar()
+		local cfg = Cfg()
+		local bar = list.coordBar
+		if not cfg or not bar or BoxHasFocus() then
+			return
+		end
+		local x, y = cfg.x, cfg.y
+		if list.frame and list.frame.IsMoving and list.frame:IsMoving() then
+			local _, _, _, fx, fy = list.frame:GetPoint(1)
+			if not SecretBlocked(fx) and type(fx) == "number" then
+				x = fx
+			end
+			if not SecretBlocked(fy) and type(fy) == "number" then
+				y = fy
+			end
+		end
+		bar.xBox:SetText(tostring(Pixel(x, 0)))
+		bar.yBox:SetText(tostring(Pixel(y, 0)))
+	end
+
+	local function SyncCoordSettings()
+		local cfg = Cfg()
+		if not cfg or applyingCoords then
+			return
+		end
+		applyingCoords = true
+		if list.xSetting then
+			list.xSetting:SetValue(cfg.x)
+		end
+		if list.ySetting then
+			list.ySetting:SetValue(cfg.y)
+		end
+		applyingCoords = false
+	end
+
+	function list:ApplyPosition()
+		local cfg = Cfg()
+		if not cfg or not list.frame then
+			return
+		end
+		cfg.x = Pixel(cfg.x, 0)
+		cfg.y = Pixel(cfg.y, 0)
+		list.frame:ClearAllPoints()
+		list.frame:SetPoint(cfg.point, UIParent, cfg.relPoint, cfg.x, cfg.y)
+		PaintCoordBar()
+	end
+
+	local function CommitCoordBar()
+		local cfg = Cfg()
+		local bar = list.coordBar
+		if not cfg or not bar then
+			return
+		end
+		cfg.x = Pixel(bar.xBox:GetText(), cfg.x)
+		cfg.y = Pixel(bar.yBox:GetText(), cfg.y)
+		list:ApplyPosition()
+		SyncCoordSettings()
+	end
+
 	local function SavePosition()
 		local cfg = Cfg()
 		if not cfg or not list.frame then
@@ -574,8 +658,10 @@ local function CreateList(key)
 		end
 		cfg.point = point
 		cfg.relPoint = relPoint
-		cfg.x = x
-		cfg.y = y
+		cfg.x = Pixel(x, cfg.x)
+		cfg.y = Pixel(y, cfg.y)
+		PaintCoordBar()
+		SyncCoordSettings()
 	end
 
 	local function LockFromClick(_, button)
@@ -611,12 +697,14 @@ local function CreateList(key)
 		end
 		GameTooltip:Hide()
 		list.frame:StartMoving()
+		list.frame:SetScript("OnUpdate", PaintCoordBar)
 	end
 
 	local function OnEdgeDragStop()
 		if not list.frame then
 			return
 		end
+		list.frame:SetScript("OnUpdate", nil)
 		list.frame:StopMovingOrSizing()
 		SavePosition()
 	end
@@ -667,6 +755,53 @@ local function CreateList(key)
 		list.edgeH:SetFrameLevel(level + 3)
 		PlaceBorders(0, 0)
 
+		local coordBar = CreateFrame("Frame", nil, frame)
+		coordBar:SetSize(168, 18)
+		coordBar:SetPoint("BOTTOMLEFT", list.body, "TOPLEFT", 0, 4)
+		coordBar:SetFrameLevel(level + 5)
+		coordBar:EnableMouse(true)
+		local function MakeCoordBox(labelText)
+			local label = coordBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			label:SetText(labelText)
+			local box = CreateFrame("EditBox", nil, coordBar)
+			box:SetSize(52, 16)
+			box:SetAutoFocus(false)
+			box:SetMaxLetters(7)
+			box:SetFontObject(GameFontHighlightSmall)
+			box:SetJustifyH("CENTER")
+			box:SetTextInsets(2, 2, 0, 0)
+			local bg = box:CreateTexture(nil, "BACKGROUND")
+			bg:SetColorTexture(0, 0, 0, 0.65)
+			bg:SetAllPoints()
+			box:SetScript("OnEnterPressed", function(self)
+				CommitCoordBar()
+				self:ClearFocus()
+			end)
+			box:SetScript("OnEscapePressed", function(self)
+				self.reverting = true
+				self:ClearFocus()
+				self.reverting = false
+				PaintCoordBar()
+			end)
+			box:SetScript("OnEditFocusLost", function(self)
+				if self.reverting then
+					return
+				end
+				CommitCoordBar()
+			end)
+			return label, box
+		end
+		local xLabel, xBox = MakeCoordBox("X")
+		local yLabel, yBox = MakeCoordBox("Y")
+		xLabel:SetPoint("LEFT", coordBar, "LEFT", 0, 0)
+		xBox:SetPoint("LEFT", xLabel, "RIGHT", 4, 0)
+		yLabel:SetPoint("LEFT", xBox, "RIGHT", 8, 0)
+		yBox:SetPoint("LEFT", yLabel, "RIGHT", 4, 0)
+		coordBar.xBox = xBox
+		coordBar.yBox = yBox
+		list.coordBar = coordBar
+		PaintCoordBar()
+
 		for i = 1, MAX_LINES do
 			local fs = textFrame:CreateFontString(nil, "OVERLAY")
 			UseFont(fs, cfg.fontSize)
@@ -705,8 +840,13 @@ local function CreateList(key)
 		list.body:SetShown(not locked)
 		list.edgeV:SetShown(sideEdge)
 		list.edgeH:SetShown(not locked)
+		if list.coordBar then
+			list.coordBar:SetShown(not locked)
+		end
 		if locked then
 			GameTooltip:Hide()
+		else
+			PaintCoordBar()
 		end
 		ShowPreview()
 	end

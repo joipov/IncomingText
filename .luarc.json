@@ -51,6 +51,8 @@
     "ColorPickerFrame",
     "CreateSettingsButtonInitializer",
     "MinimalSliderWithSteppersMixin",
+    "GameFontHighlightSmall",
+    "InputBoxTemplate",
     "print"
   ],
   "diagnostics.severity": {

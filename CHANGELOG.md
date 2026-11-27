@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.4.5
+
+Settings and list positions can be copied as a string and pasted on another character or computer.
+
+### Added
+
+- **Export profile** and **Import profile** in settings. Import reloads the UI.
+
+## 2.4.4
+
+The minimap button sits at the bottom of the main settings page, after the shared list options.
+
+### Changed
+
+- Main-page order is lock, font, and the other shared rows, then the minimap button.
+
+## 2.4.3
+
+Each list can be placed by typing X and Y, on the unlocked mover and in settings.
+
+### Added
+
+- **X** and **Y** pixel offsets on every list page, and the same boxes on the unlocked mover. Dragging updates them. Values are whole pixels.
+
 ## 2.4.2
 
 A hidden hit keeps its color. A physical hit is white, and every other school keeps its own color.

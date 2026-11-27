@@ -228,8 +228,8 @@ local function ValidateList(list, listDefaults)
 	list.grow = Choice(list.grow, GROWS, listDefaults.grow)
 	list.point = Anchor(list.point, listDefaults.point)
 	list.relPoint = Anchor(list.relPoint, listDefaults.relPoint)
-	list.x = ClampNumber(list.x, -4000, 4000, listDefaults.x)
-	list.y = ClampNumber(list.y, -4000, 4000, listDefaults.y)
+	list.x = math.floor(ClampNumber(list.x, -4000, 4000, listDefaults.x) + 0.5)
+	list.y = math.floor(ClampNumber(list.y, -4000, 4000, listDefaults.y) + 0.5)
 end
 
 local function EnsureList(list, listDefaults, colorKeys, colorOverrides)
